@@ -49,14 +49,41 @@ const loadSettings = async () => {
   }
 };
 
+// Load copied URLs from storage
+const loadCopiedUrls = async () => {
+  try {
+    if (browser.storage && browser.storage.local) {
+      const result = await browser.storage.local.get('lastCopiedUrls');
+      if (result.lastCopiedUrls && Array.isArray(result.lastCopiedUrls)) {
+        lastCopiedUrls.value = result.lastCopiedUrls;
+        linkCategories.value = categorizeUrls(result.lastCopiedUrls);
+      }
+    }
+  } catch (error) {
+    console.error('Error loading copied URLs:', error);
+  }
+};
+
+// Save copied URLs to storage
+const saveCopiedUrls = async (urls: string[]) => {
+  try {
+    if (browser.storage && browser.storage.local) {
+      await browser.storage.local.set({ lastCopiedUrls: urls });
+    }
+  } catch (error) {
+    console.error('Error saving copied URLs:', error);
+  }
+};
+
 // Get extension version from manifest
 onMounted(async () => {
   try {
     const manifest = browser.runtime.getManifest();
     extensionVersion.value = manifest.version;
     
-    // Load settings
+    // Load settings and copied URLs
     await loadSettings();
+    await loadCopiedUrls();
   } catch (error) {
     console.error('Error getting manifest:', error);
   }
@@ -202,11 +229,11 @@ const formatUrls = async (tabs: browser.Tabs.Tab[]): Promise<string> => {
 };
 
 // Show notification if enabled
-const showNotification = (message: string) => {
+const showNotification = (message: string, type?: string) => {
   if (settings.value.notifications) {
     // For popup, we'll just update the button text as notification
     // In a full extension, you might use browser.notifications.create()
-    console.log('Notification:', message);
+    console.log('Notification:', message, type ? `(${type})` : '');
   }
 };
 
@@ -289,6 +316,7 @@ const copyAllTabsUrls = async () => {
     const urls = validTabs.map(tab => tab.url!);
     lastCopiedUrls.value = urls;
     linkCategories.value = categorizeUrls(urls);
+    await saveCopiedUrls(urls);
     
     // Change button text temporarily
     buttonStates.value.copyAll = `✓ ${validTabs.length} tabs copied!`;
@@ -340,6 +368,7 @@ const copySelectedTabsUrls = async () => {
     const urls = validTabs.map(tab => tab.url!);
     lastCopiedUrls.value = urls;
     linkCategories.value = categorizeUrls(urls);
+    await saveCopiedUrls(urls);
     
     copySuccess.value = `Copied ${validTabs.length} selected URLs to clipboard`;
     buttonStates.value.copySelected = '✓ Copied!';
@@ -362,6 +391,10 @@ const copySelectedTabsUrls = async () => {
 
 // Open copied links with smart categorization
 const openCopiedLinks = async () => {
+  console.log('openCopiedLinks function called');
+  console.log('lastCopiedUrls.value:', lastCopiedUrls.value);
+  console.log('lastCopiedUrls.value.length:', lastCopiedUrls.value.length);
+  
   if (lastCopiedUrls.value.length === 0) {
     buttonStates.value.openLinks = '⚠ No links to open. Copy tabs first!';
     setTimeout(() => {
@@ -384,44 +417,59 @@ const openCopiedLinks = async () => {
       return;
     }
     
-    const categories = linkCategories.value;
     const totalLinks = validUrls.length;
-    
     buttonStates.value.openLinks = `Opening ${totalLinks} links...`;
     
-    // Open links with smart timing to prevent browser blocking
-    for (let i = 0; i < validUrls.length; i++) {
-      const url = validUrls[i];
+    console.log('Sending message to background script to open tabs');
+    
+    // Send message to background script to open tabs
+    const response = await browser.runtime.sendMessage({
+      action: 'openTabs',
+      urls: validUrls
+    }) as { success: boolean; successCount?: number; totalLinks?: number; error?: string };
+    
+    console.log('Background script response:', response);
+    
+    if (response) {
+      const { successCount, totalLinks: responseTotal, success } = response;
       
-      try {
-        // Validate URL before opening
-        new URL(url);
-        
-        await browser.tabs.create({
-          url: url,
-          active: i === 0 // Only make the first tab active
-        });
-        
-        // Add small delay between tab creation to prevent browser blocking
-        if (i < validUrls.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 100));
+      // Show success message with null checks
+      const successNum = successCount ?? 0;
+      const totalNum = responseTotal ?? 0;
+      
+      if (successNum > 0) {
+        // Show success for any tabs that opened
+        if (success) {
+          buttonStates.value.openLinks = `✓ Opened ${successNum}/${totalNum} links!`;
+          showNotification(`Opened ${successNum} of ${totalNum} links`);
+        } else {
+          // Partial success
+          buttonStates.value.openLinks = `⚠ Opened ${successNum}/${totalNum} links`;
+          showNotification(`Opened ${successNum} of ${totalNum} links (some failed)`);
         }
-      } catch (urlError) {
-        console.warn('Invalid URL skipped:', url);
+        
+        if (successNum < totalNum) {
+          console.warn(`Only ${successNum} of ${totalNum} links were opened successfully`);
+        }
+      } else {
+        // No tabs opened at all
+        console.error('Background script error:', response?.error || 'No tabs could be opened');
+        buttonStates.value.openLinks = '✗ Error opening links';
+        showNotification('Failed to open any links');
       }
+    } else {
+      console.error('No response from background script');
+      buttonStates.value.openLinks = '✗ Error opening links';
+      showNotification('Failed to open links');
     }
-    
-    // Show success message
-    buttonStates.value.openLinks = `✓ Opened ${totalLinks} links!`;
-    
-    showNotification(`Opened ${totalLinks} links`);
     
     setTimeout(() => {
       buttonStates.value.openLinks = 'Open Copied Links';
     }, 2000);
   } catch (error) {
-    console.error('Error opening links:', error);
+    console.error('Error sending message to background script:', error);
     buttonStates.value.openLinks = '✗ Error opening links';
+    showNotification('Failed to open links');
     
     setTimeout(() => {
       buttonStates.value.openLinks = 'Open Copied Links';
@@ -476,7 +524,7 @@ const openMoreSettings = () => {
         </button>
 
         <button 
-            @click="openCopiedLinks" 
+            @click="openCopiedLinks"
             :disabled="isLoading || lastCopiedUrls.length === 0"
             class="action-btn tertiary"
           >
