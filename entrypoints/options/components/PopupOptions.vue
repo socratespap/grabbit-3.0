@@ -194,6 +194,20 @@ const hideNotification = () => {
             </label>
             <p class="setting-description">When enabled, page titles will be included with URLs (applies to Markdown and HTML formats)</p>
           </div>
+
+          <div class="setting-item avoid-duplicates-item">
+            <label class="toggle-label">
+              <input 
+                type="checkbox" 
+                :checked="settings.avoidDuplicates" 
+                @change="updateSetting('avoidDuplicates', ($event.target as HTMLInputElement).checked)"
+                class="toggle-input"
+              >
+              <span class="toggle-slider"></span>
+              <span class="toggle-text">Avoid duplicate links</span>
+            </label>
+            <p class="setting-description">When enabled, duplicate URLs will be filtered out when copying or opening links</p>
+          </div>
           
           <div class="setting-item blank-lines-item">
             <label class="setting-label">Blank lines between links</label>
@@ -211,19 +225,7 @@ const hideNotification = () => {
             </div>
           </div>
           
-          <div class="setting-item avoid-duplicates-item">
-            <label class="toggle-label">
-              <input 
-                type="checkbox" 
-                :checked="settings.avoidDuplicates" 
-                @change="updateSetting('avoidDuplicates', ($event.target as HTMLInputElement).checked)"
-                class="toggle-input"
-              >
-              <span class="toggle-slider"></span>
-              <span class="toggle-text">Avoid duplicate links</span>
-            </label>
-            <p class="setting-description">When enabled, duplicate URLs will be filtered out when copying or opening links</p>
-          </div>
+          
         </div>
       </section>
 
