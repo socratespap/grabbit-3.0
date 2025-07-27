@@ -301,7 +301,7 @@ const updateSettings = (newSettings: typeof settings.value) => {
         </div>
         
         <div class="footer-info">
-          <span class="copyright">© 2024 Grabbit Extension</span>
+          <span class="copyright">© 2025 Grabbit Extension</span>
         </div>
       </div>
     </footer>

@@ -14,6 +14,16 @@ const buttonStates = ref({
   openLinks: 'Open Copied Links'
 });
 
+// Settings from PopupOptions
+const settings = ref({
+  urlFormat: 'plain',
+  includeTitle: false,
+  sortOrder: 'tab-order',
+  notifications: false,
+  excludeLinks: false,
+  excludedDomains: ''
+});
+
 // Computed property for open links button text
 const openLinksButtonText = computed(() => {
   if (buttonStates.value.openLinks !== 'Open Copied Links') {
@@ -24,15 +34,168 @@ const openLinksButtonText = computed(() => {
     : 'Open Copied Links';
 });
 
+// Load settings from storage
+const loadSettings = async () => {
+  try {
+    if (browser.storage && browser.storage.sync) {
+      const result = await browser.storage.sync.get('settings');
+      if (result.settings) {
+        settings.value = { ...settings.value, ...result.settings };
+      }
+    }
+  } catch (error) {
+    console.error('Error loading settings:', error);
+  }
+};
+
 // Get extension version from manifest
 onMounted(async () => {
   try {
     const manifest = browser.runtime.getManifest();
     extensionVersion.value = manifest.version;
+    
+    // Load settings
+    await loadSettings();
   } catch (error) {
     console.error('Error getting manifest:', error);
   }
 });
+
+// Check if URL should be excluded based on settings
+const shouldExcludeUrl = (url: string): boolean => {
+  if (!settings.value.excludeLinks || !settings.value.excludedDomains) {
+    return false;
+  }
+
+  const excludedDomains = settings.value.excludedDomains
+    .split('\n')
+    .map(domain => domain.trim())
+    .filter(domain => domain.length > 0);
+
+  for (const excludePattern of excludedDomains) {
+    try {
+      // Handle wildcard patterns
+      if (excludePattern.includes('*')) {
+        const regex = new RegExp(excludePattern.replace(/\*/g, '.*'), 'i');
+        if (regex.test(url)) {
+          return true;
+        }
+      }
+      // Handle exact domain matches
+      else if (url.toLowerCase().includes(excludePattern.toLowerCase())) {
+        return true;
+      }
+    } catch (error) {
+      console.warn('Invalid exclude pattern:', excludePattern);
+    }
+  }
+
+  return false;
+};
+
+// Format URLs according to settings
+const formatUrls = async (tabs: browser.Tabs.Tab[]): Promise<string> => {
+  let filteredTabs = tabs.filter(tab => tab.url && !shouldExcludeUrl(tab.url));
+  
+  // Sort tabs according to settings
+  if (settings.value.sortOrder === 'alphabetical') {
+    filteredTabs.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
+  } else if (settings.value.sortOrder === 'domain') {
+    filteredTabs.sort((a, b) => {
+      const domainA = a.url ? new URL(a.url).hostname : '';
+      const domainB = b.url ? new URL(b.url).hostname : '';
+      return domainA.localeCompare(domainB);
+    });
+  }
+  // 'tab-order' keeps original order
+
+  const formattedUrls: string[] = [];
+
+  for (const tab of filteredTabs) {
+    if (!tab.url) continue;
+
+    const url = tab.url;
+    const title = tab.title || 'Untitled';
+
+    switch (settings.value.urlFormat) {
+      case 'plain':
+        if (settings.value.includeTitle) {
+          formattedUrls.push(`${title} - ${url}`);
+        } else {
+          formattedUrls.push(url);
+        }
+        break;
+
+      case 'markdown':
+        if (settings.value.includeTitle) {
+          formattedUrls.push(`[${title}](${url})`);
+        } else {
+          formattedUrls.push(`[${url}](${url})`);
+        }
+        break;
+
+      case 'html':
+        if (settings.value.includeTitle) {
+          formattedUrls.push(`<a href="${url}">${title}</a>`);
+        } else {
+          formattedUrls.push(`<a href="${url}">${url}</a>`);
+        }
+        break;
+
+      case 'json':
+        // JSON format will be handled separately
+        break;
+
+      case 'csv':
+        // CSV format will be handled separately
+        break;
+
+      default:
+        formattedUrls.push(url);
+    }
+  }
+
+  // Handle JSON format
+  if (settings.value.urlFormat === 'json') {
+    const jsonData = {
+      urls: filteredTabs.map(tab => {
+        const obj: any = { url: tab.url };
+        if (settings.value.includeTitle) {
+          obj.title = tab.title || 'Untitled';
+        }
+        return obj;
+      })
+    };
+    return JSON.stringify(jsonData, null, 2);
+  }
+
+  // Handle CSV format
+  if (settings.value.urlFormat === 'csv') {
+    const csvLines: string[] = [];
+    
+    filteredTabs.forEach(tab => {
+      if (settings.value.includeTitle) {
+        const title = (tab.title || 'Untitled').replace(/\t/g, ' '); // Replace tabs with spaces
+        csvLines.push(`${tab.url}\t${title}`);
+      } else {
+        csvLines.push(`${tab.url}`);
+      }
+    });
+    
+    return csvLines.join('\n');
+  }
+
+  return formattedUrls.join('\n');
+};
+
+// Show notification if enabled
+const showNotification = (message: string) => {
+  if (settings.value.notifications) {
+    // For popup, we'll just update the button text as notification
+    // In a full extension, you might use browser.notifications.create()
+    console.log('Notification:', message);
+  }
+};
 
 // Categorize URLs by domain and type
 const categorizeUrls = (urls: string[]) => {
@@ -88,18 +251,36 @@ const categorizeUrls = (urls: string[]) => {
 // Copy all tabs URLs
 const copyAllTabsUrls = async () => {
   isLoading.value = true;
+  buttonStates.value.copyAll = 'Copying...';
   
   try {
-    const tabs = await browser.tabs.query({});
-    const urls = tabs.map(tab => tab.url).filter((url): url is string => !!url);
-    const urlsText = urls.join('\n');
+    const tabs = await browser.tabs.query({ currentWindow: true });
+    const validTabs = tabs.filter(tab => 
+      tab.url && 
+      !tab.url.startsWith('chrome://') && 
+      !tab.url.startsWith('moz-extension://') &&
+      !shouldExcludeUrl(tab.url)
+    );
     
-    await navigator.clipboard.writeText(urlsText);
+    if (validTabs.length === 0) {
+      buttonStates.value.copyAll = '⚠ No valid URLs found';
+      setTimeout(() => {
+        buttonStates.value.copyAll = 'Copy All Tabs URLs';
+      }, 2000);
+      return;
+    }
+    
+    const formattedContent = await formatUrls(validTabs);
+    await navigator.clipboard.writeText(formattedContent);
+    
+    const urls = validTabs.map(tab => tab.url!);
     lastCopiedUrls.value = urls;
     linkCategories.value = categorizeUrls(urls);
     
     // Change button text temporarily
-    buttonStates.value.copyAll = `✓ ${urls.length} tabs copied!`;
+    buttonStates.value.copyAll = `✓ ${validTabs.length} tabs copied!`;
+    
+    showNotification(`Copied ${validTabs.length} URLs`);
     
     setTimeout(() => {
       buttonStates.value.copyAll = 'Copy All Tabs URLs';
@@ -119,33 +300,48 @@ const copyAllTabsUrls = async () => {
 // Copy selected tabs URLs
 const copySelectedTabsUrls = async () => {
   isLoading.value = true;
+  buttonStates.value.copySelected = 'Copying...';
   
   try {
     const tabs = await browser.tabs.query({ highlighted: true });
-    const urls = tabs.map(tab => tab.url).filter((url): url is string => !!url);
-    const urlsText = urls.join('\n');
+    const validTabs = tabs.filter(tab => 
+      tab.url && 
+      !tab.url.startsWith('chrome://') && 
+      !tab.url.startsWith('moz-extension://') &&
+      !shouldExcludeUrl(tab.url)
+    );
     
-    if (urls.length > 0) {
-      await navigator.clipboard.writeText(urlsText);
-      lastCopiedUrls.value = urls;
-      linkCategories.value = categorizeUrls(urls);
-      
-      // Change button text temporarily
-      buttonStates.value.copySelected = `✓ ${urls.length} selected tab(s) copied!`;
-    } else {
+    if (validTabs.length === 0) {
+      copySuccess.value = 'No valid selected tabs found';
       buttonStates.value.copySelected = '⚠ No tabs selected';
+      setTimeout(() => {
+        buttonStates.value.copySelected = 'Copy Selected Tabs URLs';
+        copySuccess.value = '';
+      }, 2000);
+      return;
     }
     
-    setTimeout(() => {
-      buttonStates.value.copySelected = 'Copy Selected Tabs URLs';
-    }, 2000);
-  } catch (error) {
-    console.error('Error copying selected tabs:', error);
-    buttonStates.value.copySelected = '✗ Error copying selected tabs';
+    const formattedContent = await formatUrls(validTabs);
+    await navigator.clipboard.writeText(formattedContent);
+    
+    const urls = validTabs.map(tab => tab.url!);
+    lastCopiedUrls.value = urls;
+    linkCategories.value = categorizeUrls(urls);
+    
+    copySuccess.value = `Copied ${validTabs.length} selected URLs to clipboard`;
+    buttonStates.value.copySelected = '✓ Copied!';
+    
+    showNotification(`Copied ${validTabs.length} selected URLs`);
     
     setTimeout(() => {
       buttonStates.value.copySelected = 'Copy Selected Tabs URLs';
+      copySuccess.value = '';
     }, 2000);
+    
+  } catch (error) {
+    console.error('Error copying selected tabs:', error);
+    copySuccess.value = 'Failed to copy selected URLs';
+    buttonStates.value.copySelected = 'Copy Selected Tabs URLs';
   } finally {
     isLoading.value = false;
   }
@@ -164,14 +360,25 @@ const openCopiedLinks = async () => {
   isLoading.value = true;
   
   try {
+    // Filter out excluded URLs before opening
+    const validUrls = lastCopiedUrls.value.filter(url => !shouldExcludeUrl(url));
+    
+    if (validUrls.length === 0) {
+      buttonStates.value.openLinks = '⚠ All URLs excluded';
+      setTimeout(() => {
+        buttonStates.value.openLinks = 'Open Copied Links';
+      }, 2000);
+      return;
+    }
+    
     const categories = linkCategories.value;
-    const totalLinks = lastCopiedUrls.value.length;
+    const totalLinks = validUrls.length;
     
     buttonStates.value.openLinks = `Opening ${totalLinks} links...`;
     
     // Open links with smart timing to prevent browser blocking
-    for (let i = 0; i < lastCopiedUrls.value.length; i++) {
-      const url = lastCopiedUrls.value[i];
+    for (let i = 0; i < validUrls.length; i++) {
+      const url = validUrls[i];
       
       try {
         // Validate URL before opening
@@ -183,7 +390,7 @@ const openCopiedLinks = async () => {
         });
         
         // Add small delay between tab creation to prevent browser blocking
-        if (i < lastCopiedUrls.value.length - 1) {
+        if (i < validUrls.length - 1) {
           await new Promise(resolve => setTimeout(resolve, 100));
         }
       } catch (urlError) {
@@ -193,6 +400,8 @@ const openCopiedLinks = async () => {
     
     // Show success message
     buttonStates.value.openLinks = `✓ Opened ${totalLinks} links!`;
+    
+    showNotification(`Opened ${totalLinks} links`);
     
     setTimeout(() => {
       buttonStates.value.openLinks = 'Open Copied Links';

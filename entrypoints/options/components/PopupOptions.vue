@@ -130,16 +130,14 @@ const updateSetting = (key: string, value: any) => {
               <span class="radio-custom"></span>
               <div class="radio-content">
                 <span class="radio-text">CSV Format</span>
-                <p class="format-description">Spreadsheet compatible format</p>
+                <p class="format-description">Tab-separated format for spreadsheets</p>
                 <div class="format-example">
                    <strong>Example:</strong><br>
                    <span v-if="settings.includeTitle">
-                     URL,Title<br>
-                     https://example.com,Example Site<br>
-                     https://github.com,GitHub
+                     https://example.com&nbsp;&nbsp;&nbsp;&nbsp;Example Site<br>
+                     https://github.com&nbsp;&nbsp;&nbsp;&nbsp;GitHub
                    </span>
                    <span v-else>
-                     URL<br>
                      https://example.com<br>
                      https://github.com
                    </span>
