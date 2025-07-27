@@ -307,8 +307,104 @@
 
 .footer-info {
   display: flex;
-  align-items: center;
+  flex-direction: column;
   gap: 16px;
+  text-align: center;
+}
+
+.credits-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.credit-line {
+  margin: 0;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.credit-link {
+  color: #4caf50;
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.2s ease;
+}
+
+.credit-link:hover {
+  color: #66bb6a;
+  text-decoration: underline;
+}
+
+.support-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: center;
+}
+
+.support-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.support-buttons {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.support-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  border: 1px solid transparent;
+}
+
+.support-btn.paypal {
+  background: #0070ba;
+  color: white;
+  border-color: #005ea6;
+}
+
+.support-btn.paypal:hover {
+  background: #005ea6;
+  transform: translateY(-1px);
+}
+
+.support-btn.revolut {
+  background: #0075eb;
+  color: white;
+  border-color: #0066cc;
+}
+
+.support-btn.revolut:hover {
+  background: #0066cc;
+  transform: translateY(-1px);
+}
+
+.support-logo {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+}
+
+.support-text {
+  font-weight: 500;
+}
+
+.copyright-section {
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .copyright {
@@ -350,6 +446,16 @@
   }
   
   .footer-actions {
+    justify-content: center;
+  }
+  
+  .support-buttons {
+    flex-direction: column;
+    width: 100%;
+  }
+  
+  .support-btn {
+    width: 100%;
     justify-content: center;
   }
   

@@ -109,7 +109,7 @@ const saveSettings = async () => {
     }
     
     await browser.storage.sync.set({ settings: settings.value });
-    saveMessage.value = '✓ Settings saved successfully!';
+    saveMessage.value = 'Settings saved successfully!';
     
     setTimeout(() => {
       saveMessage.value = '';
@@ -305,7 +305,31 @@ const updateSettings = (newSettings: typeof settings.value) => {
         </div>
         
         <div class="footer-info">
-          <span class="copyright">© 2025 Grabbit Extension</span>
+          <div class="credits-section">
+            <p class="credit-line">
+              Grabbit is created by 
+              <a href="https://socratisp.com" target="_blank" rel="noopener noreferrer" class="credit-link">Socrates</a>
+            </p>
+           
+          </div>
+          
+          <div class="support-section">
+            <p class="support-title">Support Grabbit:</p>
+            <div class="support-buttons">
+              <a href="https://paypal.me/tinycobra" target="_blank" rel="noopener noreferrer" class="support-btn paypal">
+                <img src="https://upload.wikimedia.org/wikipedia/commons/b/b7/PayPal_Logo_Icon_2014.svg" alt="PayPal" class="support-logo">
+                <span class="support-text">PayPal</span>
+              </a>
+              <a href="https://revolut.me/socratespap" target="_blank" rel="noopener noreferrer" class="support-btn revolut">
+                <img src="https://upload.wikimedia.org/wikipedia/commons/7/73/Revolut_logo.svg" alt="Revolut" class="support-logo">
+                <span class="support-text">Revolut</span>
+              </a>
+            </div>
+          </div>
+          
+          <div class="copyright-section">
+            <span class="copyright">© 2025 Grabbit Extension</span>
+          </div>
         </div>
       </div>
     </footer>
