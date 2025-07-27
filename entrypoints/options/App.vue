@@ -10,20 +10,64 @@ const extensionVersion = ref('1.0.0');
 // View state
 const currentView = ref('main'); // 'main', 'popup-options', 'grabbit-options'
 
-// Settings state
-const settings = ref({
-  urlFormat: 'plain', // 'plain', 'markdown', 'html'
-  includeTitle: true,
-  sortOrder: 'tab-order', // 'tab-order', 'alphabetical', 'domain'
-  exportFormat: 'text', // 'text', 'json', 'csv'
-  notifications: true,
-  theme: 'auto', // 'auto', 'light', 'dark'
-  excludeLinks: false,
+// Default settings for first install
+const defaultSettings = {
+  urlFormat: 'plain', // Default: Plain text
+  includeTitle: false, // Default: Unchecked
+  sortOrder: 'tab-order', // Default: Tab order
+  exportFormat: 'text',
+  notifications: false, // Default: Unchecked (behavior)
+  theme: 'auto',
+  excludeLinks: false, // Default: Unchecked (behavior)
   excludedDomains: ''
-});
+};
+
+// Settings state
+const settings = ref({ ...defaultSettings });
 
 const isSaving = ref(false);
 const saveMessage = ref('');
+
+// Check for account backup and initialize settings
+const checkForAccountBackup = async () => {
+  try {
+    if (browser.storage && browser.storage.sync) {
+      // Check if this is first install by looking for any existing settings
+      const result = await browser.storage.sync.get(['settings', 'isFirstInstall']);
+      
+      if (!result.settings && result.isFirstInstall !== false) {
+        // First install - check for account backup
+        console.log('First install detected, checking for account backup...');
+        
+        // Try to get backup from connected account (if any)
+        const backupResult = await browser.storage.sync.get('accountBackup');
+        
+        if (backupResult.accountBackup) {
+          // Restore from backup
+          console.log('Account backup found, restoring settings...');
+          settings.value = { ...defaultSettings, ...backupResult.accountBackup };
+        } else {
+          // No backup found, use defaults
+          console.log('No account backup found, using default settings...');
+          settings.value = { ...defaultSettings };
+        }
+        
+        // Save the initial settings and mark as not first install
+        await browser.storage.sync.set({ 
+          settings: settings.value,
+          isFirstInstall: false 
+        });
+      } else if (result.settings) {
+        // Existing installation - load saved settings
+        settings.value = { ...defaultSettings, ...result.settings };
+      }
+    }
+  } catch (error) {
+    console.error('Error checking for account backup:', error);
+    // Fallback to defaults on error
+    settings.value = { ...defaultSettings };
+  }
+};
 
 // Get extension version from manifest
 onMounted(async () => {
@@ -37,13 +81,8 @@ onMounted(async () => {
     const manifest = browser.runtime.getManifest();
     extensionVersion.value = manifest.version;
     
-    // Load saved settings
-    if (browser.storage && browser.storage.sync) {
-      const savedSettings = await browser.storage.sync.get('settings');
-      if (savedSettings.settings) {
-        settings.value = { ...settings.value, ...savedSettings.settings };
-      }
-    }
+    // Initialize settings with backup check
+    await checkForAccountBackup();
   } catch (error) {
     console.error('Error loading settings:', error);
   }
@@ -82,16 +121,7 @@ const saveSettings = async () => {
 // Reset to defaults
 const resetToDefaults = async () => {
   if (confirm('Are you sure you want to reset all settings to defaults?')) {
-    settings.value = {
-      urlFormat: 'plain',
-      includeTitle: true,
-      sortOrder: 'tab-order',
-      exportFormat: 'text',
-      notifications: true,
-      theme: 'auto',
-      excludeLinks: false,
-      excludedDomains: ''
-    };
+    settings.value = { ...defaultSettings };
     await saveSettings();
   }
 };
