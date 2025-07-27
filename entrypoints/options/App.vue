@@ -179,6 +179,39 @@ const goBack = () => {
 const updateSettings = (newSettings: typeof settings.value) => {
   settings.value = newSettings;
 };
+
+// Rating section functions
+const getRatingUrl = () => {
+  // Detect browser and return appropriate store URL
+  const userAgent = navigator.userAgent.toLowerCase();
+  
+  // Try to get the extension ID dynamically
+  const extensionId = browser?.runtime?.id || null;
+  
+  if (userAgent.includes('chrome') && !userAgent.includes('edg')) {
+    // Chrome Web Store
+    if (extensionId) {
+      return `https://chrome.google.com/webstore/detail/grabbit/${extensionId}`;
+    }
+    return 'https://chrome.google.com/webstore/search/grabbit';
+  } else if (userAgent.includes('firefox')) {
+    // Firefox Add-ons
+    return 'https://addons.mozilla.org/en-US/firefox/addon/grabbit/';
+  } else if (userAgent.includes('edg')) {
+    // Microsoft Edge Add-ons
+    if (extensionId) {
+      return `https://microsoftedge.microsoft.com/addons/detail/grabbit/${extensionId}`;
+    }
+    return 'https://microsoftedge.microsoft.com/addons/search?q=grabbit';
+  } else {
+    // Default to Chrome Web Store search
+    return 'https://chrome.google.com/webstore/search/grabbit';
+  }
+};
+
+const openRatingPage = () => {
+  window.open(getRatingUrl(), '_blank');
+};
 </script>
 
 <template>
@@ -208,6 +241,24 @@ const updateSettings = (newSettings: typeof settings.value) => {
         </div>
       </div>
     </header>
+
+    <!-- Rating Section -->
+    <section class="rating-section">
+      <div class="rating-content">
+        <h3 class="rating-title">Enjoying Grabbit?</h3>
+        <p class="rating-description">Your 5-star rating helps others discover this extension!</p>
+        <button @click="openRatingPage" class="rating-button">
+          <div class="stars">
+            <span class="star">★</span>
+            <span class="star">★</span>
+            <span class="star">★</span>
+            <span class="star">★</span>
+            <span class="star">★</span>
+          </div>
+          <span class="rating-text">Rate on Store</span>
+        </button>
+      </div>
+    </section>
 
     <!-- Main Content -->
     <main class="main-content">
