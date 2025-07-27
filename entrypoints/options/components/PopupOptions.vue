@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { defineProps, defineEmits } from 'vue';
+import { defineProps, defineEmits, ref, watch } from 'vue';
 
 const props = defineProps<{
   settings: {
@@ -11,6 +11,7 @@ const props = defineProps<{
     theme: string;
     excludeLinks: boolean;
     excludedDomains: string;
+    blankLines: number;
   };
   saveMessage: string;
   isSaving: boolean;
@@ -24,10 +25,33 @@ const emit = defineEmits<{
   importSettings: [event: Event];
 }>();
 
+// Notification state
+const showNotification = ref(false);
+const notificationMessage = ref('');
+const notificationType = ref<'success' | 'error'>('success');
+
+// Watch for save message changes to show bubble notification
+watch(() => props.saveMessage, (newMessage) => {
+  if (newMessage) {
+    notificationMessage.value = newMessage;
+    notificationType.value = newMessage.includes('Error') || newMessage.includes('✗') ? 'error' : 'success';
+    showNotification.value = true;
+    
+    // Auto-hide notification after 3 seconds
+    setTimeout(() => {
+      showNotification.value = false;
+    }, 3000);
+  }
+});
+
 const updateSetting = (key: string, value: any) => {
   const newSettings = { ...props.settings, [key]: value };
   emit('updateSettings', newSettings);
   emit('saveSettings');
+};
+
+const hideNotification = () => {
+  showNotification.value = false;
 };
 </script>
 
@@ -57,10 +81,12 @@ const updateSetting = (key: string, value: any) => {
                   <strong>Example:</strong><br>
                   <span v-if="settings.includeTitle">
                     Example Site - https://example.com<br>
+                    <span v-for="n in settings.blankLines" :key="n"><br></span>
                     GitHub - https://github.com
                   </span>
                   <span v-else>
                     https://example.com<br>
+                    <span v-for="n in settings.blankLines" :key="n"><br></span>
                     https://github.com
                   </span>
                 </div>
@@ -77,10 +103,12 @@ const updateSetting = (key: string, value: any) => {
                   <strong>Example:</strong><br>
                   <span v-if="settings.includeTitle">
                     [Example Site](https://example.com)<br>
+                    <span v-for="n in settings.blankLines" :key="n"><br></span>
                     [GitHub](https://github.com)
                   </span>
                   <span v-else>
                     [https://example.com](https://example.com)<br>
+                    <span v-for="n in settings.blankLines" :key="n"><br></span>
                     [https://github.com](https://github.com)
                   </span>
                 </div>
@@ -97,10 +125,12 @@ const updateSetting = (key: string, value: any) => {
                   <strong>Example:</strong><br>
                   <span v-if="settings.includeTitle">
                     &lt;a href="https://example.com"&gt;Example Site&lt;/a&gt;<br>
+                    <span v-for="n in settings.blankLines" :key="n"><br></span>
                     &lt;a href="https://github.com"&gt;GitHub&lt;/a&gt;
                   </span>
                   <span v-else>
                     &lt;a href="https://example.com"&gt;https://example.com&lt;/a&gt;<br>
+                    <span v-for="n in settings.blankLines" :key="n"><br></span>
                     &lt;a href="https://github.com"&gt;https://github.com&lt;/a&gt;
                   </span>
                 </div>
@@ -116,10 +146,10 @@ const updateSetting = (key: string, value: any) => {
                 <div class="format-example">
                    <strong>Example:</strong><br>
                    <span v-if="settings.includeTitle">
-                     {"urls": [{"url": "https://example.com", "title": "Example Site"}]}
+                     {"urls": [{"url": "https://example.com", "title": "Example Site"}, {"url": "https://github.com", "title": "GitHub"}]}
                    </span>
                    <span v-else>
-                     {"urls": [{"url": "https://example.com"}]}
+                     {"urls": [{"url": "https://example.com"}, {"url": "https://github.com"}]}
                    </span>
                  </div>
               </div>
@@ -135,10 +165,12 @@ const updateSetting = (key: string, value: any) => {
                    <strong>Example:</strong><br>
                    <span v-if="settings.includeTitle">
                      https://example.com&nbsp;&nbsp;&nbsp;&nbsp;Example Site<br>
+                     <span v-for="n in settings.blankLines" :key="n"><br></span>
                      https://github.com&nbsp;&nbsp;&nbsp;&nbsp;GitHub
                    </span>
                    <span v-else>
                      https://example.com<br>
+                     <span v-for="n in settings.blankLines" :key="n"><br></span>
                      https://github.com
                    </span>
                  </div>
@@ -159,6 +191,22 @@ const updateSetting = (key: string, value: any) => {
             </label>
             <p class="setting-description">When enabled, page titles will be included with URLs (applies to Markdown and HTML formats)</p>
           </div>
+          
+          <div class="setting-item blank-lines-item">
+            <label class="setting-label">Blank lines between links</label>
+            <p class="setting-description">Number of blank lines to add between each link (does not apply to JSON format)</p>
+            <div class="number-input-container">
+              <input 
+                type="number" 
+                :value="settings.blankLines" 
+                @input="updateSetting('blankLines', parseInt(($event.target as HTMLInputElement).value) || 0)"
+                min="0"
+                max="5"
+                class="number-input"
+              >
+              <span class="number-label">lines</span>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -171,19 +219,7 @@ const updateSetting = (key: string, value: any) => {
           Behavior
         </h2>
         
-        <div class="setting-item">
-          <label class="toggle-label">
-            <input 
-              type="checkbox" 
-              :checked="settings.notifications" 
-              @change="updateSetting('notifications', ($event.target as HTMLInputElement).checked)"
-              class="toggle-input"
-            >
-            <span class="toggle-slider"></span>
-            <span class="toggle-text">Show notifications</span>
-          </label>
-          <p class="setting-description">Display notifications when URLs are copied to clipboard</p>
-        </div>
+        
         
         <div class="setting-item">
           <label class="toggle-label">
@@ -247,11 +283,29 @@ const updateSetting = (key: string, value: any) => {
 
       </section>
 
-      <!-- Save Message -->
-      <div v-if="saveMessage" class="save-message" :class="{ error: saveMessage.includes('Error') }">
-        {{ saveMessage }}
-      </div>
     </div>
+    
+    <!-- Bubble Notification -->
+    <Transition name="notification">
+      <div v-if="showNotification" class="notification-bubble" :class="notificationType" @click="hideNotification">
+        <div class="notification-content">
+          <div class="notification-icon">
+            <svg v-if="notificationType === 'success'" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+            </svg>
+            <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </div>
+          <span class="notification-text">{{ notificationMessage }}</span>
+          <button class="notification-close" @click.stop="hideNotification">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      </div>
+    </Transition>
   </div>
 </template>
 
@@ -608,23 +662,171 @@ const updateSetting = (key: string, value: any) => {
 
 
 
-/* Save Message */
-.save-message {
-  background: rgba(76, 175, 80, 0.2);
-  border: 1px solid rgba(76, 175, 80, 0.3);
-  color: #4caf50;
-  padding: 12px 16px;
-  border-radius: 8px;
-  text-align: center;
-  font-size: 14px;
-  margin-top: 24px;
-  animation: slideIn 0.3s ease-out;
+/* Number Input Styles */
+.blank-lines-item {
+  margin-top: 32px;
+  padding-top: 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.save-message.error {
-  background: rgba(244, 67, 54, 0.2);
-  border-color: rgba(244, 67, 54, 0.3);
+.number-input-container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.number-input {
+  width: 80px;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  color: white;
+  font-size: 14px;
+  transition: all 0.2s ease;
+}
+
+.number-input:focus {
+  outline: none;
+  border-color: rgba(255, 255, 255, 0.4);
+  background: rgba(255, 255, 255, 0.15);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.1);
+}
+
+.number-input::-webkit-outer-spin-button,
+.number-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.number-input[type=number] {
+  -moz-appearance: textfield;
+}
+
+.number-label {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.7);
+  font-weight: 500;
+}
+
+/* Bubble Notification */
+.notification-bubble {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 1000;
+  max-width: 400px;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(20px);
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  overflow: hidden;
+}
+
+.notification-bubble::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%);
+  pointer-events: none;
+}
+
+.notification-bubble:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.notification-bubble.success {
+  border-left: 4px solid #4caf50;
+}
+
+.notification-bubble.error {
+  border-left: 4px solid #f44336;
+}
+
+.notification-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px;
+  position: relative;
+  z-index: 1;
+}
+
+.notification-icon {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+}
+
+.notification-bubble.success .notification-icon {
+  color: #4caf50;
+}
+
+.notification-bubble.error .notification-icon {
   color: #f44336;
+}
+
+.notification-text {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.9);
+  line-height: 1.4;
+}
+
+.notification-close {
+  width: 20px;
+  height: 20px;
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.notification-close:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* Notification Transitions */
+.notification-enter-active {
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.notification-leave-active {
+  transition: all 0.3s ease-in;
+}
+
+.notification-enter-from {
+  opacity: 0;
+  transform: translateX(100%) scale(0.8);
+}
+
+.notification-leave-to {
+  opacity: 0;
+  transform: translateX(100%) scale(0.9);
+}
+
+.notification-enter-to,
+.notification-leave-from {
+  opacity: 1;
+  transform: translateX(0) scale(1);
 }
 
 /* Responsive Design */
@@ -663,6 +865,23 @@ const updateSetting = (key: string, value: any) => {
   
   .excluded-domains-group {
     padding-left: 12px;
+  }
+  
+  /* Mobile notification adjustments */
+  .notification-bubble {
+    top: 10px;
+    right: 10px;
+    left: 10px;
+    max-width: none;
+  }
+  
+  .notification-content {
+    padding: 14px 16px;
+    gap: 10px;
+  }
+  
+  .notification-text {
+    font-size: 13px;
   }
 }
 
@@ -706,6 +925,32 @@ const updateSetting = (key: string, value: any) => {
   
   .exclude-examples {
     padding: 12px;
+  }
+  
+  /* Small mobile notification adjustments */
+  .notification-bubble {
+    top: 8px;
+    right: 8px;
+    left: 8px;
+  }
+  
+  .notification-content {
+    padding: 12px 14px;
+    gap: 8px;
+  }
+  
+  .notification-text {
+    font-size: 12px;
+  }
+  
+  .notification-icon {
+    width: 20px;
+    height: 20px;
+  }
+  
+  .notification-close {
+    width: 18px;
+    height: 18px;
   }
 }
 

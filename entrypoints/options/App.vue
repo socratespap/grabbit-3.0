@@ -19,7 +19,8 @@ const defaultSettings = {
   notifications: false, // Default: Unchecked (behavior)
   theme: 'auto',
   excludeLinks: false, // Default: Unchecked (behavior)
-  excludedDomains: ''
+  excludedDomains: '',
+  blankLines: 0 // Default: No blank lines
 };
 
 // Settings state

@@ -21,7 +21,8 @@ const settings = ref({
   sortOrder: 'tab-order',
   notifications: false,
   excludeLinks: false,
-  excludedDomains: ''
+  excludedDomains: '',
+  blankLines: 0
 });
 
 // Computed property for open links button text
@@ -182,7 +183,19 @@ const formatUrls = async (tabs: browser.Tabs.Tab[]): Promise<string> => {
       }
     });
     
+    // Add blank lines between CSV entries if specified
+    if (settings.value.blankLines > 0) {
+      const separator = '\n' + '\n'.repeat(settings.value.blankLines);
+      return csvLines.join(separator);
+    }
+    
     return csvLines.join('\n');
+  }
+
+  // Add blank lines between formatted URLs if specified (not for JSON)
+  if (settings.value.blankLines > 0) {
+    const separator = '\n' + '\n'.repeat(settings.value.blankLines);
+    return formattedUrls.join(separator);
   }
 
   return formattedUrls.join('\n');
