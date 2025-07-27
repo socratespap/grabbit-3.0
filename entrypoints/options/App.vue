@@ -1,9 +1,14 @@
 <script lang="ts" setup>
 import { ref, onMounted } from 'vue';
 import browser from 'webextension-polyfill';
+import PopupOptions from './components/PopupOptions.vue';
+import GrabbitOptions from './components/GrabbitOptions.vue';
 
 const extensionName = 'Grabbit';
 const extensionVersion = ref('1.0.0');
+
+// View state
+const currentView = ref('main'); // 'main', 'popup-options', 'grabbit-options'
 
 // Settings state
 const settings = ref({
@@ -122,6 +127,24 @@ const importSettings = (event: Event) => {
   };
   reader.readAsText(file);
 };
+
+// Navigation functions
+const showPopupOptions = () => {
+  currentView.value = 'popup-options';
+};
+
+const showGrabbitOptions = () => {
+  currentView.value = 'grabbit-options';
+};
+
+const goBack = () => {
+  currentView.value = 'main';
+};
+
+// Settings management functions
+const updateSettings = (newSettings: typeof settings.value) => {
+  settings.value = newSettings;
+};
 </script>
 
 <template>
@@ -135,166 +158,89 @@ const importSettings = (event: Event) => {
           </div>
           <div class="brand-text">
             <h1 class="extension-name">{{ extensionName }}</h1>
-            <p class="tagline">Extension Settings</p>
+            <p class="tagline">{{ currentView === 'main' ? 'Choose Settings Category' : 'Extension Settings' }}</p>
           </div>
         </div>
-        <div class="version-badge">
-          v{{ extensionVersion }}
+        <div class="header-actions">
+          <button v-if="currentView !== 'main'" @click="goBack" class="back-btn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+            </svg>
+            Back
+          </button>
+          <div class="version-badge">
+            v{{ extensionVersion }}
+          </div>
         </div>
       </div>
     </header>
 
     <!-- Main Content -->
     <main class="main-content">
-      <div class="settings-container">
-        <!-- URL Format Section -->
-        <section class="settings-section">
-          <h2 class="section-title">
-            <svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
-            </svg>
-            URL Format
-          </h2>
-          <div class="setting-group">
-            <label class="setting-label">Output Format</label>
-            <p class="setting-description">Choose how URLs are formatted when copied to clipboard:</p>
+      <!-- Main Selection View -->
+      <div v-if="currentView === 'main'" class="main-selection">
+        <div class="selection-container">
+          <h2 class="selection-title">Settings Categories</h2>
+          <p class="selection-description">Choose which settings you'd like to configure:</p>
+          
+          <div class="option-cards">
+            <button @click="showGrabbitOptions" class="option-card">
+              <div class="card-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+              </div>
+              <div class="card-content">
+                <h3 class="card-title">Grabbit Options</h3>
+                <p class="card-description">Core extension settings and preferences</p>
+              </div>
+              <div class="card-arrow">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+              </div>
+            </button>
             
-            <div class="radio-group">
-              <label class="radio-option">
-                <input type="radio" v-model="settings.urlFormat" value="plain" @change="saveSettings" />
-                <span class="radio-custom"></span>
-                <div class="radio-content">
-                  <span class="radio-text">Plain Text</span>
-                  <p class="format-description">Simple URLs, one per line</p>
-                  <div class="format-example">
-                    <strong>Example:</strong><br>
-                    https://example.com<br>
-                    https://github.com
-                  </div>
-                </div>
-              </label>
-              
-              <label class="radio-option">
-                <input type="radio" v-model="settings.urlFormat" value="markdown" @change="saveSettings" />
-                <span class="radio-custom"></span>
-                <div class="radio-content">
-                  <span class="radio-text">Markdown Links</span>
-                  <p class="format-description">Clickable links in Markdown format</p>
-                  <div class="format-example">
-                    <strong>Example:</strong><br>
-                    [Example Site](https://example.com)<br>
-                    [GitHub](https://github.com)
-                  </div>
-                </div>
-              </label>
-              
-              <label class="radio-option">
-                <input type="radio" v-model="settings.urlFormat" value="html" @change="saveSettings" />
-                <span class="radio-custom"></span>
-                <div class="radio-content">
-                  <span class="radio-text">HTML Links</span>
-                  <p class="format-description">Clickable links in HTML format</p>
-                  <div class="format-example">
-                    <strong>Example:</strong><br>
-                    &lt;a href="https://example.com"&gt;Example Site&lt;/a&gt;<br>
-                    &lt;a href="https://github.com"&gt;GitHub&lt;/a&gt;
-                  </div>
-                </div>
-              </label>
-            </div>
+            <button @click="showPopupOptions" class="option-card">
+              <div class="card-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                </svg>
+              </div>
+              <div class="card-content">
+                <h3 class="card-title">Popup Options</h3>
+                <p class="card-description">Customize popup behavior and appearance</p>
+              </div>
+              <div class="card-arrow">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+              </div>
+            </button>
           </div>
-          
-          <div class="setting-item">
-            <label class="toggle-label">
-              <input type="checkbox" v-model="settings.includeTitle" @change="saveSettings" class="toggle-input" />
-              <span class="toggle-slider"></span>
-              <span class="toggle-text">Include page titles</span>
-            </label>
-            <p class="setting-description">Add page titles alongside URLs when copying</p>
-          </div>
-        </section>
-
-        <!-- Behavior Section -->
-        <section class="settings-section">
-          <h2 class="section-title">
-            <svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
-            Behavior
-          </h2>
-          
-          <div class="setting-item">
-            <label class="toggle-label">
-              <input type="checkbox" v-model="settings.notifications" @change="saveSettings" class="toggle-input" />
-              <span class="toggle-slider"></span>
-              <span class="toggle-text">Show notifications</span>
-            </label>
-            <p class="setting-description">Display notifications when URLs are copied</p>
-          </div>
-          
-          <div class="setting-item">
-            <label class="toggle-label">
-              <input type="checkbox" v-model="settings.excludeLinks" @change="saveSettings" class="toggle-input" />
-              <span class="toggle-slider"></span>
-              <span class="toggle-text">Exclude these links from being copied</span>
-            </label>
-            <p class="setting-description">Prevent specific domains or URLs from being included when copying</p>
-          </div>
-          
-          <div v-if="settings.excludeLinks" class="setting-group">
-            <label class="setting-label">Excluded domains and URLs</label>
-            <textarea 
-              v-model="settings.excludedDomains" 
-              @input="saveSettings" 
-              class="textarea-input"
-              rows="6"
-              placeholder="Enter domains or URLs to exclude, one per line:"
-            ></textarea>
-            <div class="exclude-examples">
-              <p class="examples-title">Examples:</p>
-              <ul class="examples-list">
-                <li><code>example.com</code> - Excludes all URLs from example.com</li>
-                <li><code>*.ads.com</code> - Excludes all subdomains of ads.com</li>
-                <li><code>https://tracker.site.com</code> - Excludes specific URL</li>
-                <li><code>facebook.com/tr</code> - Excludes specific path</li>
-              </ul>
-            </div>
-          </div>
-        </section>
-
-        <!-- Organization Section -->
-        <section class="settings-section">
-          <h2 class="section-title">
-            <svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
-            </svg>
-            Organization
-          </h2>
-          <div class="setting-group">
-            <label class="setting-label">Sort Order</label>
-            <select v-model="settings.sortOrder" @change="saveSettings" class="select-input">
-              <option value="tab-order">Tab Order</option>
-              <option value="alphabetical">Alphabetical</option>
-              <option value="domain">By Domain</option>
-            </select>
-          </div>
-          
-          <div class="setting-group">
-            <label class="setting-label">Export Format</label>
-            <select v-model="settings.exportFormat" @change="saveSettings" class="select-input">
-              <option value="text">Text File</option>
-              <option value="json">JSON</option>
-              <option value="csv">CSV</option>
-            </select>
-          </div>
-        </section>
-
-        <!-- Save Message -->
-        <div v-if="saveMessage" class="save-message" :class="{ error: saveMessage.includes('Error') }">
-          {{ saveMessage }}
         </div>
       </div>
+
+      <!-- Popup Options View -->
+      <PopupOptions 
+         v-if="currentView === 'popup-options'"
+         :settings="settings"
+         :save-message="saveMessage"
+         :is-saving="isSaving"
+         @update-settings="updateSettings"
+         @save-settings="saveSettings"
+         @reset-to-defaults="resetToDefaults"
+         @export-settings="exportSettings"
+         @import-settings="importSettings"
+       />
+
+      <!-- Grabbit Options View -->
+      <GrabbitOptions 
+        v-if="currentView === 'grabbit-options'"
+        :settings="settings"
+        @update-settings="updateSettings"
+      />
     </main>
 
     <!-- Footer -->
@@ -405,6 +351,37 @@ const importSettings = (event: Event) => {
   font-weight: 400;
 }
 
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.back-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  color: white;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.back-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: translateY(-1px);
+}
+
+.back-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
 .version-badge {
   background: rgba(255, 255, 255, 0.15);
   padding: 8px 16px;
@@ -420,325 +397,119 @@ const importSettings = (event: Event) => {
   padding: 40px 24px;
 }
 
-.settings-container {
-  max-width: 800px;
-  margin: 0 auto;
+/* Main Selection */
+.main-selection {
   display: flex;
-  flex-direction: column;
-  gap: 32px;
+  justify-content: center;
+  align-items: center;
+  min-height: 60vh;
 }
 
-/* Settings Sections */
-.settings-section {
+.selection-container {
+  max-width: 600px;
+  width: 100%;
+  text-align: center;
+}
+
+.selection-title {
+  font-size: 32px;
+  font-weight: 600;
+  margin: 0 0 16px 0;
+  color: white;
+  letter-spacing: -0.5px;
+}
+
+.selection-description {
+  font-size: 16px;
+  color: rgba(255, 255, 255, 0.7);
+  margin: 0 0 48px 0;
+  line-height: 1.5;
+}
+
+.option-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.option-card {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 24px;
   background: rgba(255, 255, 255, 0.1);
   backdrop-filter: blur(20px);
-  border-radius: 16px;
-  padding: 24px;
   border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  color: white;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  width: 100%;
 }
 
-.section-title {
+.option-card:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+}
+
+.card-icon {
+  width: 48px;
+  height: 48px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 12px;
   display: flex;
   align-items: center;
-  gap: 12px;
-  font-size: 20px;
-  font-weight: 600;
-  margin: 0 0 24px 0;
-  color: white;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
-.section-icon {
+.card-icon svg {
   width: 24px;
   height: 24px;
-  opacity: 0.8;
+  opacity: 0.9;
 }
 
-/* Setting Items */
-.setting-group {
-  margin-bottom: 24px;
-}
-
-.setting-item {
-  margin-bottom: 24px;
-}
-
-.setting-label {
-  display: block;
-  font-size: 14px;
-  font-weight: 500;
-  margin-bottom: 8px;
-  color: rgba(255, 255, 255, 0.9);
-}
-
-.setting-description {
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.6);
-  margin: 4px 0 0 0;
-  line-height: 1.4;
-}
-
-/* Radio Groups */
-.radio-group {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.radio-option {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  cursor: pointer;
-  padding: 16px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 2px solid rgba(255, 255, 255, 0.1);
-  border-radius: 12px;
-  transition: all 0.2s ease;
-  position: relative;
-}
-
-.radio-option:hover {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.2);
-}
-
-.radio-option:has(input:checked) {
-  background: rgba(255, 255, 255, 0.15);
-  border-color: rgba(255, 255, 255, 0.3);
-}
-
-.radio-option input[type="radio"] {
-  display: none;
-}
-
-.radio-custom {
-  width: 18px;
-  height: 18px;
-  border: 2px solid rgba(255, 255, 255, 0.4);
-  border-radius: 50%;
-  position: relative;
-  transition: all 0.2s ease;
-  margin-top: 2px;
-}
-
-.radio-option input[type="radio"]:checked + .radio-custom {
-  border-color: white;
-  background: white;
-}
-
-.radio-option input[type="radio"]:checked + .radio-custom::after {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 8px;
-  height: 8px;
-  background: #2196f3;
-  border-radius: 50%;
-}
-
-.radio-content {
+.card-content {
   flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
 }
 
-.radio-text {
+.card-title {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0 0 8px 0;
+  color: white;
+}
+
+.card-description {
   font-size: 14px;
-  color: rgba(255, 255, 255, 0.9);
-  font-weight: 500;
-}
-
-.format-description {
-  font-size: 13px;
   color: rgba(255, 255, 255, 0.7);
   margin: 0;
   line-height: 1.4;
 }
 
-.format-example {
-  background: rgba(0, 0, 0, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 6px;
-  padding: 12px;
-  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-  font-size: 12px;
-  line-height: 1.5;
-  color: rgba(255, 255, 255, 0.9);
-  margin-top: 4px;
-}
-
-.format-example strong {
-  color: rgba(255, 255, 255, 0.8);
-  font-weight: 600;
-  margin-bottom: 6px;
-  display: block;
-}
-
-/* Toggle Switches */
-.toggle-label {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  cursor: pointer;
-  padding: 8px;
-  border-radius: 8px;
-  transition: background-color 0.2s ease;
-}
-
-.toggle-label:hover {
-  background: rgba(255, 255, 255, 0.05);
-}
-
-.toggle-input {
-  display: none;
-}
-
-.toggle-slider {
-  width: 44px;
+.card-arrow {
+  width: 24px;
   height: 24px;
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 12px;
-  position: relative;
-  transition: all 0.3s ease;
-}
-
-.toggle-slider::before {
-  content: '';
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 20px;
-  height: 20px;
-  background: white;
-  border-radius: 50%;
-  transition: all 0.3s ease;
-}
-
-.toggle-input:checked + .toggle-slider {
-  background: rgba(255, 255, 255, 0.3);
-}
-
-.toggle-input:checked + .toggle-slider::before {
-  transform: translateX(20px);
-}
-
-.toggle-text {
-  font-size: 14px;
-  color: rgba(255, 255, 255, 0.9);
-  font-weight: 500;
-}
-
-/* Select and Input Styles */
-.select-input,
-.number-input {
-  width: 100%;
-  padding: 12px 16px;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 8px;
-  color: white;
-  font-size: 14px;
+  opacity: 0.6;
   transition: all 0.2s ease;
 }
 
-.select-input:focus,
-.number-input:focus {
-  outline: none;
-  border-color: rgba(255, 255, 255, 0.4);
-  background: rgba(255, 255, 255, 0.15);
+.option-card:hover .card-arrow {
+  opacity: 1;
+  transform: translateX(4px);
 }
 
-.select-input option {
-  background: #1565c0;
-  color: white;
-}
-
-.number-input {
-  max-width: 120px;
-}
-
-.textarea-input {
+.card-arrow svg {
   width: 100%;
-  padding: 12px 16px;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 8px;
-  color: white;
-  font-size: 14px;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  transition: all 0.2s ease;
-  resize: vertical;
-  min-height: 120px;
+  height: 100%;
 }
 
-.textarea-input:focus {
-  outline: none;
-  border-color: rgba(255, 255, 255, 0.4);
-  background: rgba(255, 255, 255, 0.15);
-}
 
-.textarea-input::placeholder {
-  color: rgba(255, 255, 255, 0.5);
-}
 
-.exclude-examples {
-  margin-top: 12px;
-  padding: 16px;
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 8px;
-  border-left: 3px solid rgba(255, 255, 255, 0.3);
-}
-
-.examples-title {
-  margin: 0 0 8px 0;
-  font-weight: 600;
-  font-size: 13px;
-  color: rgba(255, 255, 255, 0.9);
-}
-
-.examples-list {
-  margin: 0;
-  padding-left: 16px;
-  list-style-type: disc;
-}
-
-.examples-list li {
-  margin-bottom: 4px;
-  font-size: 13px;
-  color: rgba(255, 255, 255, 0.7);
-}
-
-.examples-list code {
-  background: rgba(0, 0, 0, 0.2);
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.9);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-/* Save Message */
-.save-message {
-  background: rgba(76, 175, 80, 0.2);
-  border: 1px solid rgba(76, 175, 80, 0.3);
-  color: #4caf50;
-  padding: 12px 16px;
-  border-radius: 8px;
-  text-align: center;
-  font-size: 14px;
-  margin-top: 24px;
-  animation: slideIn 0.3s ease-out;
-}
-
-.save-message.error {
-  background: rgba(244, 67, 54, 0.2);
-  border-color: rgba(244, 67, 54, 0.3);
-  color: #f44336;
-}
+/* Component-specific styles are now in their respective component files */
 
 /* Footer */
 .footer {
@@ -860,6 +631,38 @@ const importSettings = (event: Event) => {
   .extension-name {
     font-size: 24px;
   }
+  
+  .selection-title {
+    font-size: 28px;
+  }
+  
+  .selection-description {
+    font-size: 15px;
+    margin-bottom: 32px;
+  }
+  
+  .option-card {
+    padding: 20px;
+    gap: 16px;
+  }
+  
+  .card-icon {
+    width: 40px;
+    height: 40px;
+  }
+  
+  .card-icon svg {
+    width: 20px;
+    height: 20px;
+  }
+  
+  .card-title {
+    font-size: 16px;
+  }
+  
+  .card-description {
+    font-size: 13px;
+  }
 }
 
 @media (max-width: 480px) {
@@ -893,6 +696,42 @@ const importSettings = (event: Event) => {
   .footer-btn {
     justify-content: center;
     width: 100%;
+  }
+  
+  .selection-title {
+    font-size: 24px;
+  }
+  
+  .selection-description {
+    font-size: 14px;
+    margin-bottom: 24px;
+  }
+  
+  .option-card {
+    padding: 16px;
+    gap: 12px;
+  }
+  
+  .card-title {
+    font-size: 15px;
+  }
+  
+  .card-description {
+    font-size: 12px;
+  }
+  
+  .header-actions {
+    gap: 12px;
+  }
+  
+  .back-btn {
+    padding: 6px 12px;
+    font-size: 13px;
+  }
+  
+  .back-btn svg {
+    width: 14px;
+    height: 14px;
   }
 }
 </style>
