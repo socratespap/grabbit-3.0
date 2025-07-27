@@ -213,7 +213,7 @@ const updateSetting = (key: string, value: any) => {
               <h4 class="examples-title">Examples:</h4>
               <ul class="examples-list">
                 <li><code>example.com</code> - Excludes all URLs from this domain</li>
-                <li><code>https://specific-page.com/path</code> - Excludes this exact URL</li>
+                <li><code>https://www.specific-page.com/path</code> - Excludes this exact URL</li>
                 <li><code>*.ads.com</code> - Excludes all subdomains (ads.com, banner.ads.com, etc.)</li>
                 <li><code>social-media.com/ads/*</code> - Excludes all URLs starting with this path</li>
               </ul>
