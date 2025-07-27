@@ -22,7 +22,8 @@ const settings = ref({
   notifications: false,
   excludeLinks: false,
   excludedDomains: '',
-  blankLines: 0
+  blankLines: 0,
+  avoidDuplicates: true
 });
 
 // Computed property for open links button text
@@ -124,6 +125,18 @@ const shouldExcludeUrl = (url: string): boolean => {
 // Format URLs according to settings
 const formatUrls = async (tabs: browser.Tabs.Tab[]): Promise<string> => {
   let filteredTabs = tabs.filter(tab => tab.url && !shouldExcludeUrl(tab.url));
+  
+  // Remove duplicates if enabled
+  if (settings.value.avoidDuplicates) {
+    const seenUrls = new Set<string>();
+    filteredTabs = filteredTabs.filter(tab => {
+      if (tab.url && !seenUrls.has(tab.url)) {
+        seenUrls.add(tab.url);
+        return true;
+      }
+      return false;
+    });
+  }
   
   // Sort tabs according to settings
   if (settings.value.sortOrder === 'alphabetical') {
@@ -345,12 +358,24 @@ const copySelectedTabsUrls = async () => {
   
   try {
     const tabs = await browser.tabs.query({ highlighted: true });
-    const validTabs = tabs.filter(tab => 
+    let validTabs = tabs.filter(tab => 
       tab.url && 
       !tab.url.startsWith('chrome://') && 
       !tab.url.startsWith('moz-extension://') &&
       !shouldExcludeUrl(tab.url)
     );
+    
+    // Remove duplicates if enabled
+    if (settings.value.avoidDuplicates) {
+      const seenUrls = new Set<string>();
+      validTabs = validTabs.filter(tab => {
+        if (tab.url && !seenUrls.has(tab.url)) {
+          seenUrls.add(tab.url);
+          return true;
+        }
+        return false;
+      });
+    }
     
     if (validTabs.length === 0) {
       copySuccess.value = 'No valid selected tabs found';
@@ -407,7 +432,19 @@ const openCopiedLinks = async () => {
   
   try {
     // Filter out excluded URLs before opening
-    const validUrls = lastCopiedUrls.value.filter(url => !shouldExcludeUrl(url));
+    let validUrls = lastCopiedUrls.value.filter(url => !shouldExcludeUrl(url));
+    
+    // Remove duplicates if enabled
+    if (settings.value.avoidDuplicates) {
+      const seenUrls = new Set<string>();
+      validUrls = validUrls.filter(url => {
+        if (!seenUrls.has(url)) {
+          seenUrls.add(url);
+          return true;
+        }
+        return false;
+      });
+    }
     
     if (validUrls.length === 0) {
       buttonStates.value.openLinks = '⚠ All URLs excluded';

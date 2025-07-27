@@ -22,7 +22,8 @@ const defaultSettings = {
   theme: 'auto',
   excludeLinks: false, // Default: Unchecked (behavior)
   excludedDomains: '',
-  blankLines: 0 // Default: No blank lines
+  blankLines: 0, // Default: No blank lines
+  avoidDuplicates: true // Default: Enabled
 };
 
 // Settings state
