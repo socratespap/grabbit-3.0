@@ -1,5 +1,5 @@
 export default defineBackground(() => {
-  console.log('Hello background!', { id: browser.runtime.id });
+  console.log('Background worker', { id: browser.runtime.id });
 
   // Listen for messages from popup
   browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
