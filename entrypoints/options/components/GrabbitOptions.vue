@@ -1,15 +1,35 @@
 <script lang="ts" setup>
-import { defineEmits } from 'vue';
+import { defineEmits, ref, watch } from 'vue';
 import '../styles/GrabbitOptions.css';
+import ActionCreationPopup from './ActionCreationPopup.vue';
 
 const emit = defineEmits<{
   goBack: [];
 }>();
 
+const showActionPopup = ref(false);
+
+// Watch popup visibility to control body scroll
+watch(showActionPopup, (isVisible) => {
+  if (isVisible) {
+    document.body.style.overflow = 'hidden';
+  } else {
+    document.body.style.overflow = 'auto';
+  }
+});
+
 // Handle add new action
 const addNewAction = () => {
-  console.log('Add new action clicked');
-  // TODO: Implement add action functionality
+  showActionPopup.value = true;
+};
+
+const closeActionPopup = () => {
+  showActionPopup.value = false;
+};
+
+const handleActionSelected = (actionType: string) => {
+  console.log('Selected action type:', actionType);
+  // TODO: Handle the selected action type
 };
 </script>
 
@@ -43,6 +63,13 @@ const addNewAction = () => {
         </button>
       </div>
     </div>
+    
+    <!-- Action Creation Popup -->
+    <ActionCreationPopup 
+      :isVisible="showActionPopup" 
+      @close="closeActionPopup" 
+      @actionSelected="handleActionSelected" 
+    />
   </div>
 </template>
 
