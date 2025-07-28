@@ -90,7 +90,7 @@ const props = withDefaults(defineProps<Props>(), {
     smartSelectEnabled: true,
     reverseOrderEnabled: false,
     openAtEndEnabled: false,
-    tabOpeningDelay: 0.5
+    tabOpeningDelay: 0.0
   })
 });
 

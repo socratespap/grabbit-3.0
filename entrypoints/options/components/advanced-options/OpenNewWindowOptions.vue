@@ -74,7 +74,7 @@ const props = withDefaults(defineProps<Props>(), {
   options: () => ({
     smartSelectEnabled: true,
     reverseOrderEnabled: false,
-    tabOpeningDelay: 0.5
+    tabOpeningDelay: 0.0
   })
 });
 
