@@ -37,6 +37,18 @@
           @update:advanced-options="handleAdvancedOptionsUpdate"
         />
         
+        <!-- Step 3: Review Configuration -->
+        <ReviewStep 
+          v-if="currentStep === 3"
+          :selected-mouse-button="selectedMouseButton"
+          :selected-modifiers="selectedModifiers"
+          :selected-color="selectedColor"
+          :selected-border-type="selectedBorderType"
+          :selected-border-size="selectedBorderSize"
+          :selected-action="selectedAction"
+          :advanced-options="advancedOptions"
+        />
+        
         <!-- Action Buttons -->
         <div class="action-buttons">
           <button @click="closePopup" class="btn-secondary">
@@ -67,6 +79,7 @@ import { ref, computed } from 'vue';
 import StepIndicator from './steps/StepIndicator.vue';
 import ActivationKeysStep from './steps/ActivationKeysStep.vue';
 import ActionSelectionStep from './steps/ActionSelectionStep.vue';
+import ReviewStep from './steps/ReviewStep.vue';
 import '../styles/ActionCreationPopup.css';
 
 interface Props {
@@ -97,6 +110,8 @@ const canProceed = computed(() => {
     return selectedMouseButton.value && selectedColor.value && selectedBorderType.value && selectedBorderSize.value;
   } else if (currentStep.value === 2) {
     return selectedAction.value;
+  } else if (currentStep.value === 3) {
+    return true; // All validation is done in previous steps
   }
   return false;
 });
