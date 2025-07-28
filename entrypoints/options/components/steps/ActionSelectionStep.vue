@@ -134,9 +134,12 @@ const getAdvancedComponent = (action: string) => {
 };
 
 const getAdvancedProps = (action: string) => {
-  return {
-    options: props.advancedOptions[action] || {}
-  };
+  const actionOptions = props.advancedOptions[action];
+  // Only pass options if they exist and have properties, otherwise let withDefaults handle it
+  if (actionOptions && Object.keys(actionOptions).length > 0) {
+    return { options: actionOptions };
+  }
+  return {}; // Don't pass options prop, let withDefaults provide defaults
 };
 
 const handleAdvancedUpdate = (options: Record<string, any>) => {
