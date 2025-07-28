@@ -470,6 +470,144 @@
                   </div>
                 </div>
               </div>
+              
+              <!-- Options for Copy URLs with Page Title -->
+              <div v-if="selectedAction === 'copy_urls_with_title'" class="advanced-config">
+                <div class="option-group">
+                  <div class="toggle-option">
+                    <label class="toggle-label">
+                      <input 
+                        type="checkbox" 
+                        v-model="smartSelectEnabledTitle"
+                        class="toggle-input"
+                      >
+                      <span class="toggle-slider"></span>
+                      <span class="toggle-text">Smart Select</span>
+                    </label>
+                    <p class="option-description">Removes duplicate URLs when selecting multiple links with the same destination</p>
+                  </div>
+                  
+                  <div class="toggle-option">
+                    <label class="toggle-label">
+                      <input 
+                        type="checkbox" 
+                        v-model="reverseOrderEnabledTitle"
+                        class="toggle-input"
+                      >
+                      <span class="toggle-slider"></span>
+                      <span class="toggle-text">Copy in reverse order</span>
+                    </label>
+                    <p class="option-description">Copies links in reverse order of selection</p>
+                  </div>
+                  
+                  <!-- Format Pattern Selection -->
+                  <div class="config-section">
+                    <label class="config-label">Format Pattern</label>
+                    <p class="config-description">Choose the order of title and URL in the output</p>
+                    
+                    <div class="format-pattern-options">
+                      <div 
+                        class="format-pattern-btn" 
+                        :class="{ active: formatPattern === 'title_url' }"
+                        @click="selectFormatPattern('title_url')"
+                      >
+                        <div class="pattern-label">Title then URL</div>
+                        <div class="pattern-example">Example Title{{ getSeparatorExample() }}https://example.com</div>
+                      </div>
+                      
+                      <div 
+                        class="format-pattern-btn" 
+                        :class="{ active: formatPattern === 'url_title' }"
+                        @click="selectFormatPattern('url_title')"
+                      >
+                        <div class="pattern-label">URL then Title</div>
+                        <div class="pattern-example">https://example.com{{ getSeparatorExample() }}Example Title</div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <!-- Separator Type Selection -->
+                  <div class="config-section">
+                    <label class="config-label">Separator Type</label>
+                    <p class="config-description">Choose how to separate title and URL</p>
+                    
+                    <div class="separator-type-options">
+                      <button 
+                        v-for="separator in separatorTypes" 
+                        :key="separator.value"
+                        class="separator-type-btn"
+                        :class="{ active: separatorType === separator.value }"
+                        @click="selectSeparatorType(separator.value)"
+                      >
+                        <div class="separator-preview">{{ separator.preview }}</div>
+                        <span>{{ separator.name }}</span>
+                      </button>
+                    </div>
+                  </div>
+                  
+                  <!-- Separator Count -->
+                  <div class="number-option">
+                    <label class="number-label">Separator Count</label>
+                    <p class="option-description">How many times to repeat the separator</p>
+                    <div class="number-control">
+                      <button 
+                        @click="decreaseSeparatorCount" 
+                        class="number-btn"
+                        :disabled="separatorCount <= 1"
+                      >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4" />
+                        </svg>
+                      </button>
+                      <span class="number-value">{{ separatorCount }}</span>
+                      <button 
+                        @click="increaseSeparatorCount" 
+                        class="number-btn"
+                        :disabled="separatorCount >= 10"
+                      >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                  
+                  <!-- New Lines Counter -->
+                  <div class="number-option">
+                    <label class="number-label">New lines between entries</label>
+                    <p class="option-description">How many new lines to add between each title-URL pair</p>
+                    <div class="number-control">
+                      <button 
+                        @click="decreaseNewLinesCount" 
+                        class="number-btn"
+                        :disabled="newLinesCount <= 0"
+                      >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4" />
+                        </svg>
+                      </button>
+                      <span class="number-value">{{ newLinesCount }}</span>
+                      <button 
+                        @click="increaseNewLinesCount" 
+                        class="number-btn"
+                        :disabled="newLinesCount >= 5"
+                      >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                  
+                  <!-- Example Output -->
+                  <div class="example-section">
+                    <div class="example-content">
+                      <div class="example-label">Example output:</div>
+                      <div class="example-text" v-html="getExampleOutput()"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -541,6 +679,14 @@ const blankLinesEnabled = ref<boolean>(false);
 const blankLinesCount = ref<number>(0);
 const excludeDomainsEnabled = ref<boolean>(false);
 const excludedDomains = ref<string>('');
+
+// Advanced options for Copy URLs with Page Title
+const smartSelectEnabledTitle = ref<boolean>(true);
+const reverseOrderEnabledTitle = ref<boolean>(false);
+const formatPattern = ref<string>('title_url'); // 'title_url' or 'url_title'
+const separatorType = ref<string>('newline'); // 'newline', 'space', 'tab'
+const separatorCount = ref<number>(1);
+const newLinesCount = ref<number>(0);
 
 // Platform detection for cross-platform compatibility
 const isMac = computed(() => {
@@ -616,6 +762,12 @@ const borderSizes = [
   { name: 'Medium', value: 2, preview: 18 },
   { name: 'Thick', value: 3, preview: 20 },
   { name: 'Extra Thick', value: 4, preview: 22 }
+];
+
+const separatorTypes = [
+  { name: 'New Line', value: 'newline', preview: '↵' },
+  { name: 'Space', value: 'space', preview: '␣' },
+  { name: 'Tab', value: 'tab', preview: '⇥' }
 ];
 
 const actionOptions = [
@@ -730,6 +882,114 @@ const increaseBlankLines = () => {
 
 const decreaseBlankLines = () => {
   blankLinesCount.value = Math.max(blankLinesCount.value - 1, 0);
+};
+
+// Methods for Copy URLs with Page Title options
+const selectFormatPattern = (pattern: string) => {
+  formatPattern.value = pattern;
+};
+
+const selectSeparatorType = (type: string) => {
+  separatorType.value = type;
+};
+
+const increaseSeparatorCount = () => {
+  separatorCount.value = Math.min(separatorCount.value + 1, 10);
+};
+
+const decreaseSeparatorCount = () => {
+  separatorCount.value = Math.max(separatorCount.value - 1, 1);
+};
+
+const increaseNewLinesCount = () => {
+  newLinesCount.value = Math.min(newLinesCount.value + 1, 5);
+};
+
+const decreaseNewLinesCount = () => {
+  newLinesCount.value = Math.max(newLinesCount.value - 1, 0);
+};
+
+const getSeparatorExample = () => {
+  const separator = separatorTypes.find(s => s.value === separatorType.value);
+  if (!separator) return ' ';
+  
+  let result = '';
+  for (let i = 0; i < separatorCount.value; i++) {
+    switch (separatorType.value) {
+      case 'newline':
+        result += '\n';
+        break;
+      case 'space':
+        result += ' ';
+        break;
+      case 'tab':
+        result += '\t';
+        break;
+      default:
+        result += ' ';
+    }
+  }
+  return result;
+};
+
+const getExampleOutput = () => {
+  // Create example data
+  let examples = [
+    { title: 'Example Title 1', url: 'https://example1.com' },
+    { title: 'Example Title 2', url: 'https://example2.com' },
+    { title: 'Example Title 3', url: 'https://example3.com' }
+  ];
+  
+  // Apply reverse order if enabled
+  if (reverseOrderEnabledTitle.value) {
+    examples = examples.reverse();
+  }
+  
+  // Apply smart select simulation (remove duplicates)
+  if (smartSelectEnabledTitle.value) {
+    // For demo purposes, we'll show that smart select removes duplicates
+    // In real usage, this would filter out duplicate URLs
+  }
+  
+  // Generate separator string
+  let separator = '';
+  for (let i = 0; i < separatorCount.value; i++) {
+    switch (separatorType.value) {
+      case 'newline':
+        separator += '<br>';
+        break;
+      case 'space':
+        separator += ' ';
+        break;
+      case 'tab':
+        separator += '&nbsp;&nbsp;&nbsp;&nbsp;'; // Visual representation of tab
+        break;
+      default:
+        separator += ' ';
+    }
+  }
+  
+  // Generate new lines between entries
+  const newLinesBetween = '<br>'.repeat(newLinesCount.value + 1);
+  
+  // Format each entry based on pattern
+  const formattedEntries = examples.map((example, index) => {
+    let entry = '';
+    if (formatPattern.value === 'title_url') {
+      entry = example.title + separator + example.url;
+    } else {
+      entry = example.url + separator + example.title;
+    }
+    
+    // Add new lines between entries (except for the last one)
+    if (index < examples.length - 1) {
+      entry += newLinesBetween;
+    }
+    
+    return entry;
+  });
+  
+  return formattedEntries.join('');
 };
 
 const goToPreviousStep = () => {
