@@ -43,7 +43,7 @@
         </div>
       </div>
       
-      <div class="separator-section">
+      <div class="separator-section" v-if="!['markdown', 'html', 'json'].includes(options.formatPattern || 'title_url')">
         <label class="section-label">Separator Type</label>
         <div class="separator-type-buttons">
           <button 
@@ -81,7 +81,7 @@
             </div>
           </div>
           
-          <div class="newlines-section">
+          <div class="newlines-section" v-if="!['markdown', 'html', 'json'].includes(options.formatPattern || 'title_url')">
             <label class="number-label">New Lines Between Entries</label>
             <div class="number-control">
               <button 
@@ -118,6 +118,7 @@
 </template>
 
 <script setup lang="ts">
+import { nextTick } from 'vue';
 interface Props {
   options: {
     smartSelectEnabled?: boolean;
@@ -149,8 +150,9 @@ const emit = defineEmits<Emits>();
 const formatPatterns = [
   { value: 'title_url', label: 'Title - URL' },
   { value: 'url_title', label: 'URL - Title' },
-  { value: 'title_only', label: 'Title Only' },
-  { value: 'url_only', label: 'URL Only' }
+  { value: 'markdown', label: 'Markdown' },
+  { value: 'html', label: 'HTML Links' },
+  { value: 'json', label: 'JSON Format' }
 ];
 
 const separatorTypes = [
@@ -169,7 +171,17 @@ const updateOption = (key: string, value: any) => {
 };
 
 const selectFormatPattern = (pattern: string) => {
+  // First update the format pattern
   updateOption('formatPattern', pattern);
+  
+  // Then reset other settings based on the new format
+   nextTick(() => {
+     if (['markdown', 'html', 'json'].includes(pattern)) {
+       updateOption('separatorType', 'space');
+       updateOption('separatorCount', 1);
+       updateOption('newLinesCount', 0);
+     }
+   });
 };
 
 const selectSeparatorType = (type: string) => {
@@ -241,14 +253,22 @@ const getExampleOutput = () => {
         return `${item.title}${separator}${item.url}`;
       case 'url_title':
         return `${item.url}${separator}${item.title}`;
-      case 'title_only':
-        return item.title;
-      case 'url_only':
-        return item.url;
+      case 'markdown':
+        return `[${item.title}](${item.url})`;
+      case 'html':
+        return `<a href="${item.url}">${item.title}</a>`;
+      case 'json':
+        return JSON.stringify({ url: item.url, title: item.title });
       default:
         return `${item.title}${separator}${item.url}`;
     }
   };
+  
+  // Handle JSON format specially
+  if (props.options.formatPattern === 'json') {
+    const urlsArray = data.map(item => ({ url: item.url, title: item.title }));
+    return JSON.stringify({ urls: urlsArray }, null, 2);
+  }
   
   const formattedEntries = data.map(formatEntry);
   const newLines = '\n'.repeat((props.options.newLinesCount || 0) + 1);
