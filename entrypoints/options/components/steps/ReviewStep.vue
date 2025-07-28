@@ -179,7 +179,7 @@ const getActionIcon = (action: string): string => {
 const getActionDescription = (action: string): string => {
   const descriptions: Record<string, string> = {
     'open_new_tab': 'open the selected links in new browser tabs',
-    'open_new_window': 'open the selected links in new browser windows',
+    'open_new_window': 'open the selected links in a new window',
     'copy_urls': 'copy the URLs of selected links to your clipboard',
     'copy_urls_with_title': 'copy the URLs along with their page titles to your clipboard',
     'copy_titles': 'copy only the page titles of selected links to your clipboard'

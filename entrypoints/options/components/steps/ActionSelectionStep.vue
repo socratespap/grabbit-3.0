@@ -81,7 +81,7 @@ const actionOptions = [
   {
     name: 'Open links in new window',
     value: 'open_new_window',
-    description: 'Opens selected links in new browser windows',
+    description: 'Opens selected links in a new window',
     icon: 'M8 14v3a2 2 0 002 2h8a2 2 0 002-2V9a2 2 0 00-2-2h-8a2 2 0 00-2 2v5zM8 14V9a2 2 0 012-2h8a2 2 0 012 2v5M4 7v10a2 2 0 002 2h2'
   },
   {
