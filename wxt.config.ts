@@ -4,7 +4,7 @@ import { defineConfig } from 'wxt';
 export default defineConfig({
   modules: ['@wxt-dev/module-vue'],
   manifest: {
-    permissions: ['tabs', 'scripting', 'storage'],
+    permissions: ['tabs', 'scripting', 'storage', 'activeTab'],
     options_ui: {
       page: 'options.html',
       open_in_tab: true

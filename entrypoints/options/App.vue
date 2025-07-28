@@ -3,6 +3,7 @@ import { ref, onMounted } from 'vue';
 import browser from 'webextension-polyfill';
 import PopupOptions from './components/PopupOptions.vue';
 import GrabbitOptions from './components/GrabbitOptions.vue';
+import AdvancedOptions from './components/AdvancedOptionsMenu.vue';
 import './styles/shared.css';
 import './styles/main-selection.css';
 
@@ -10,7 +11,7 @@ const extensionName = 'Grabbit';
 const extensionVersion = ref('1.0.0');
 
 // View state
-const currentView = ref('main'); // 'main', 'popup-options', 'grabbit-options'
+const currentView = ref('main'); // 'main', 'popup-options', 'grabbit-options', 'advanced-options'
 
 // Default settings for first install
 const defaultSettings = {
@@ -21,7 +22,7 @@ const defaultSettings = {
   notifications: false, // Default: Unchecked (behavior)
   theme: 'auto',
   excludeLinks: false, // Default: Unchecked (behavior)
-  excludedDomains: '',
+  excludedDomains: '', // Default: No excluded domains
   blankLines: 0, // Default: No blank lines
   avoidDuplicates: true // Default: Enabled
 };
@@ -171,13 +172,19 @@ const showGrabbitOptions = () => {
   currentView.value = 'grabbit-options';
 };
 
+const showAdvancedOptions = () => {
+  currentView.value = 'advanced-options';
+};
+
 const goBack = () => {
   currentView.value = 'main';
 };
 
 // Settings management functions
-const updateSettings = (newSettings: typeof settings.value) => {
+const updateSettings = async (newSettings: typeof settings.value) => {
   settings.value = newSettings;
+  // Automatically save settings when they are updated
+  await saveSettings();
 };
 
 // Rating section functions
@@ -303,6 +310,23 @@ const openRatingPage = () => {
                 </svg>
               </div>
             </button>
+            
+            <button @click="showAdvancedOptions" class="option-card">
+              <div class="card-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                </svg>
+              </div>
+              <div class="card-content">
+                <h3 class="card-title">Advanced Options</h3>
+                <p class="card-description">Domain exclusions and advanced settings</p>
+              </div>
+              <div class="card-arrow">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+              </div>
+            </button>
           </div>
         </div>
       </div>
@@ -325,6 +349,13 @@ const openRatingPage = () => {
         v-if="currentView === 'grabbit-options'"
         :settings="settings"
         @update-settings="updateSettings"
+      />
+
+      <!-- Advanced Options View -->
+      <AdvancedOptions 
+        v-if="currentView === 'advanced-options'"
+        :settings="settings"
+        @update-settings="(newSettings) => updateSettings(newSettings)"
       />
     </main>
 

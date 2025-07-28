@@ -1,6 +1,94 @@
 export default defineBackground(() => {
   console.log('Background worker', { id: browser.runtime.id });
 
+  // Check if domain is excluded and update icon accordingly
+  const checkDomainAndUpdateIcon = async (tabId: number, url: string) => {
+    try {
+      // Get settings from storage
+      const result = await browser.storage.sync.get('settings');
+      const settings = result.settings || {};
+      
+      if (settings.excludedDomains) {
+        const excludedDomains = settings.excludedDomains
+          .split(',')
+          .map((domain: string) => domain.trim())
+          .filter((domain: string) => domain.length > 0);
+        
+        const currentDomain = new URL(url).hostname;
+        const isExcluded = excludedDomains.some((excludedDomain: string) => 
+          currentDomain === excludedDomain || currentDomain.endsWith('.' + excludedDomain)
+        );
+        
+        if (isExcluded) {
+          // Disable the extension action for excluded domains
+          await browser.action.disable(tabId);
+          
+          // Set a badge to indicate disabled state
+          await browser.action.setBadgeText({
+            tabId: tabId,
+            text: '✕'
+          });
+          
+          await browser.action.setBadgeBackgroundColor({
+            tabId: tabId,
+            color: '#888888'
+          });
+          
+          // Disable the popup
+          await browser.action.setPopup({
+            tabId: tabId,
+            popup: ''
+          });
+        } else {
+          // Enable the extension action
+          await browser.action.enable(tabId);
+          
+          // Clear the badge
+          await browser.action.setBadgeText({
+            tabId: tabId,
+            text: ''
+          });
+          
+          // Enable the popup
+          await browser.action.setPopup({
+            tabId: tabId,
+            popup: 'popup.html'
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error checking domain exclusion:', error);
+    }
+  };
+
+  // Listen for tab updates to check domain exclusions
+  browser.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
+    if (changeInfo.status === 'complete' && tab.url) {
+      await checkDomainAndUpdateIcon(tabId, tab.url);
+    }
+  });
+
+  // Listen for tab activation to check domain exclusions
+  browser.tabs.onActivated.addListener(async (activeInfo) => {
+    const tab = await browser.tabs.get(activeInfo.tabId);
+    if (tab.url) {
+      await checkDomainAndUpdateIcon(activeInfo.tabId, tab.url);
+    }
+  });
+
+  // Listen for settings updates to refresh icon states
+  browser.storage.onChanged.addListener(async (changes, areaName) => {
+    if (areaName === 'sync' && changes.settings) {
+      // Settings changed, update all tabs
+      const tabs = await browser.tabs.query({});
+      for (const tab of tabs) {
+        if (tab.id && tab.url) {
+          await checkDomainAndUpdateIcon(tab.id, tab.url);
+        }
+      }
+    }
+  });
+
   // Listen for messages from popup
   browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.action === 'openTabs') {
