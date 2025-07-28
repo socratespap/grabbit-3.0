@@ -471,6 +471,37 @@
                 </div>
               </div>
               
+              <!-- Options for Copy Page Titles Only -->
+              <div v-if="selectedAction === 'copy_titles'" class="advanced-config">
+                <div class="option-group">
+                  <div class="toggle-option">
+                    <label class="toggle-label">
+                      <input 
+                        type="checkbox" 
+                        v-model="smartSelectEnabledTitles"
+                        class="toggle-input"
+                      >
+                      <span class="toggle-slider"></span>
+                      <span class="toggle-text">Smart Select</span>
+                    </label>
+                    <p class="option-description">Removes duplicate titles when selecting multiple links with the same page title</p>
+                  </div>
+                  
+                  <div class="toggle-option">
+                    <label class="toggle-label">
+                      <input 
+                        type="checkbox" 
+                        v-model="reverseOrderEnabledTitles"
+                        class="toggle-input"
+                      >
+                      <span class="toggle-slider"></span>
+                      <span class="toggle-text">Copy in reverse order</span>
+                    </label>
+                    <p class="option-description">Copies titles in reverse order of selection</p>
+                  </div>
+                </div>
+              </div>
+              
               <!-- Options for Copy URLs with Page Title -->
               <div v-if="selectedAction === 'copy_urls_with_title'" class="advanced-config">
                 <div class="option-group">
@@ -679,6 +710,10 @@ const blankLinesEnabled = ref<boolean>(false);
 const blankLinesCount = ref<number>(0);
 const excludeDomainsEnabled = ref<boolean>(false);
 const excludedDomains = ref<string>('');
+
+// Advanced options for Copy Page Titles Only
+const smartSelectEnabledTitles = ref<boolean>(true);
+const reverseOrderEnabledTitles = ref<boolean>(false);
 
 // Advanced options for Copy URLs with Page Title
 const smartSelectEnabledTitle = ref<boolean>(true);
