@@ -133,7 +133,12 @@ watch(() => props.isVisible, (newValue) => {
       selectedBorderType.value = props.initialData.borderType;
       selectedBorderSize.value = props.initialData.borderSize;
       selectedAction.value = props.initialData.action;
-      advancedOptions.value = props.initialData.advancedOptions;
+      
+      // Only include advanced options for the current action type when editing
+      const currentActionOptions = props.initialData.advancedOptions?.[props.initialData.action] || {};
+      advancedOptions.value = {
+        [props.initialData.action]: currentActionOptions
+      };
     }
   }
 });

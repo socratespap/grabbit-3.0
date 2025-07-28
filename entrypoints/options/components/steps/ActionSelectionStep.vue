@@ -107,6 +107,46 @@ const actionOptions = [
 const selectAction = (action: string) => {
   emit('update:action', action);
   
+  // Reset advanced options to defaults for the new action type
+  const defaultOptions: Record<string, any> = {
+    'open_new_tab': {
+      smartSelectEnabled: true,
+      reverseOrderEnabled: false,
+      openAtEndEnabled: false,
+      tabOpeningDelay: 0.0
+    },
+    'open_new_window': {
+      smartSelectEnabled: true,
+      reverseOrderEnabled: false,
+      tabOpeningDelay: 0.0
+    },
+    'copy_urls': {
+      smartSelectEnabled: true,
+      reverseOrderEnabled: false,
+      separatorType: 'newline',
+      separatorCount: 1
+    },
+    'copy_urls_with_title': {
+      smartSelectEnabled: true,
+      reverseOrderEnabled: false,
+      formatPattern: 'title_url',
+      separatorType: 'space',
+      separatorCount: 1,
+      newLinesCount: 0
+    },
+    'copy_titles': {
+      smartSelectEnabled: true,
+      reverseOrderEnabled: false,
+      separatorType: 'newline',
+      separatorCount: 1
+    }
+  };
+  
+  // Emit the reset advanced options for the new action type
+  emit('update:advanced-options', {
+    [action]: defaultOptions[action] || {}
+  });
+  
   // Smooth scroll to advanced options after a short delay
   if (action) {
     nextTick(() => {
@@ -134,12 +174,9 @@ const getAdvancedComponent = (action: string) => {
 };
 
 const getAdvancedProps = (action: string) => {
-  const actionOptions = props.advancedOptions[action];
-  // Only pass options if they exist and have properties, otherwise let withDefaults handle it
-  if (actionOptions && Object.keys(actionOptions).length > 0) {
-    return { options: actionOptions };
-  }
-  return {}; // Don't pass options prop, let withDefaults provide defaults
+  const actionOptions = props.advancedOptions[action] || {};
+  
+  return { options: actionOptions };
 };
 
 const handleAdvancedUpdate = (options: Record<string, any>) => {

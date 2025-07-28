@@ -1,5 +1,6 @@
 <script lang="ts" setup>
-import { defineEmits, ref, watch } from 'vue';
+import { defineEmits, ref, watch, onMounted } from 'vue';
+import browser from 'webextension-polyfill';
 import '../styles/GrabbitOptions.css';
 import ActionCreationPopup from './ActionCreationPopup.vue';
 
@@ -21,6 +22,70 @@ const emit = defineEmits<{
 
 const showActionPopup = ref(false);
 const actions = ref<ActionConfig[]>([]);
+
+// Load actions from storage
+const loadActions = async () => {
+  try {
+    const result = await browser.storage.sync.get('grabbitActions');
+    const loadedActions = result.grabbitActions;
+    console.log('Raw loaded data:', loadedActions);
+    
+    // Ensure we always have an array and convert dates back
+    if (Array.isArray(loadedActions)) {
+      actions.value = loadedActions.map(action => ({
+        ...action,
+        modifiers: Array.isArray(action.modifiers) ? action.modifiers : 
+                  (action.modifiers && typeof action.modifiers === 'object') ? 
+                  Object.values(action.modifiers) : [],
+        createdAt: typeof action.createdAt === 'string' ? new Date(action.createdAt) : action.createdAt
+      }));
+    } else {
+      actions.value = [];
+    }
+    
+    console.log('Processed actions:', actions.value);
+  } catch (error) {
+    console.error('Error loading actions:', error);
+    actions.value = []; // Fallback to empty array on error
+  }
+};
+
+// Save actions to storage
+const saveActions = async () => {
+  try {
+    // Convert actions to plain objects to ensure proper serialization
+    const actionsToSave = actions.value.map(action => ({
+      id: action.id,
+      mouseButton: action.mouseButton,
+      modifiers: Array.isArray(action.modifiers) ? [...action.modifiers] : [],
+      color: action.color,
+      borderType: action.borderType,
+      borderSize: action.borderSize,
+      action: action.action,
+      advancedOptions: action.advancedOptions,
+      createdAt: action.createdAt instanceof Date ? action.createdAt.toISOString() : action.createdAt
+    }));
+    
+    await browser.storage.sync.set({ grabbitActions: actionsToSave });
+    console.log('Actions saved:', actionsToSave);
+    
+    // Verify the save by reading it back
+    const verification = await browser.storage.sync.get('grabbitActions');
+    console.log('Verification - stored data:', verification.grabbitActions);
+  } catch (error) {
+    console.error('Error saving actions:', error);
+  }
+};
+
+// Watch for changes in actions and save automatically
+watch(actions, () => {
+  saveActions();
+}, { deep: true });
+
+// Load actions on component mount
+onMounted(() => {
+  loadActions();
+});
 
 // Watch popup visibility to control body scroll
 watch(showActionPopup, (isVisible) => {
@@ -119,21 +184,60 @@ const closeActionPopup = () => {
   editingAction.value = null;
 };
 
+const cleanAdvancedOptions = (actionType: string, advancedOptions: any) => {
+  if (!advancedOptions || !advancedOptions[actionType]) {
+    return {};
+  }
+
+  const cleanedOptions = { ...advancedOptions[actionType] };
+  
+  // For copy_urls_with_title action, handle separator options based on format
+  if (actionType === 'copy_urls_with_title') {
+    const formatPattern = cleanedOptions.formatPattern;
+    if (['markdown', 'html', 'json'].includes(formatPattern)) {
+      // Set separator options to null for these formats
+      cleanedOptions.separatorType = null;
+      cleanedOptions.separatorCount = null;
+      cleanedOptions.newLinesCount = null;
+    } else if (['title_url', 'url_title'].includes(formatPattern)) {
+      // Set default values for title_url and url_title formats if not specified
+      if (!cleanedOptions.separatorType) {
+        cleanedOptions.separatorType = 'space';
+      }
+      if (!cleanedOptions.separatorCount) {
+        cleanedOptions.separatorCount = 1;
+      }
+      if (!cleanedOptions.newLinesCount) {
+        cleanedOptions.newLinesCount = 1;
+      }
+    }
+  }
+  
+  return { [actionType]: cleanedOptions };
+};
+
 const handleActionCreated = (config: any) => {
+  // Clean advanced options to remove irrelevant settings
+  const cleanedConfig = {
+    ...config,
+    advancedOptions: cleanAdvancedOptions(config.action, config.advancedOptions)
+  };
+  
   if (editingAction.value) {
     // Update existing action
     const index = actions.value.findIndex(a => a.id === editingAction.value!.id);
     if (index !== -1) {
       actions.value[index] = {
         ...editingAction.value,
-        ...config
+        ...cleanedConfig
       };
     }
   } else {
     // Create new action
     const newAction: ActionConfig = {
       id: Date.now().toString(),
-      ...config
+      createdAt: new Date(),
+      ...cleanedConfig
     };
     actions.value.push(newAction);
   }

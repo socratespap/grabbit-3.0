@@ -118,7 +118,7 @@
 </template>
 
 <script setup lang="ts">
-import { nextTick } from 'vue';
+import { nextTick, watch, onMounted } from 'vue';
 interface Props {
   options: {
     smartSelectEnabled?: boolean;
@@ -187,6 +187,31 @@ const selectFormatPattern = (pattern: string) => {
 const selectSeparatorType = (type: string) => {
   updateOption('separatorType', type);
 };
+
+// Watch for format pattern changes and reset separator options for markdown/html/json
+watch(() => props.options.formatPattern, (newPattern) => {
+  if (newPattern && ['markdown', 'html', 'json'].includes(newPattern)) {
+    // Reset separator options for formats that don't use them
+    updateOption('separatorType', 'space');
+    updateOption('separatorCount', 1);
+    updateOption('newLinesCount', 0);
+  }
+}, { immediate: true });
+
+// Handle initial load case when editing existing actions
+onMounted(() => {
+  const currentPattern = props.options.formatPattern;
+  if (currentPattern && ['markdown', 'html', 'json'].includes(currentPattern)) {
+    // Reset separator options if they exist from previous action types
+    if (props.options.separatorType !== 'space' || 
+        props.options.separatorCount !== 1 || 
+        props.options.newLinesCount !== 0) {
+      updateOption('separatorType', 'space');
+      updateOption('separatorCount', 1);
+      updateOption('newLinesCount', 0);
+    }
+  }
+});
 
 const increaseSeparatorCount = () => {
   const newCount = Math.min((props.options.separatorCount || 1) + 1, 10);
