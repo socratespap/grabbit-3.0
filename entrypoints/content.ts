@@ -123,6 +123,89 @@ export default defineContentScript({
       return selectedLinks;
     };
     
+    // Apply smart select (remove duplicates)
+    const applySmartSelect = (links: HTMLAnchorElement[], smartSelectEnabled: boolean, actionType: string): HTMLAnchorElement[] => {
+      if (!smartSelectEnabled) return links;
+      
+      const seen = new Set<string>();
+      return links.filter(link => {
+        let key: string;
+        
+        // For title-based actions, use title as the key
+        if (actionType === 'copy_titles') {
+          key = link.textContent?.trim() || link.title || 'Untitled';
+        } else {
+          // For URL-based actions, use URL as the key
+          key = link.href;
+        }
+        
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+    };
+    
+    // Apply reverse order
+    const applyReverseOrder = (items: any[], reverseOrderEnabled: boolean): any[] => {
+      return reverseOrderEnabled ? [...items].reverse() : items;
+    };
+    
+    // Get separator string
+    const getSeparator = (separatorType: string, separatorCount: number = 1): string => {
+      const separatorMap: Record<string, string> = {
+        space: ' ',
+        dash: '-',
+        pipe: '|',
+        colon: ':',
+        tab: '\t',
+        newline: '\n'
+      };
+      
+      const separator = separatorMap[separatorType] || separatorMap.newline;
+      return separator.repeat(separatorCount);
+    };
+    
+    // Format URLs with titles based on pattern
+    const formatUrlsWithTitles = (links: HTMLAnchorElement[], options: any): string => {
+      const formatPattern = options.formatPattern || 'title_url';
+      const separatorType = options.separatorType || 'space';
+      const separatorCount = options.separatorCount || 1;
+      const newLinesCount = options.newLinesCount || 0;
+      
+      const separator = getSeparator(separatorType, separatorCount);
+      
+      const formatEntry = (link: HTMLAnchorElement) => {
+        const title = link.textContent?.trim() || link.title || 'Untitled';
+        const url = link.href;
+        
+        switch (formatPattern) {
+          case 'title_url':
+            return `${title}${separator}${url}`;
+          case 'url_title':
+            return `${url}${separator}${title}`;
+          case 'markdown':
+            return `[${title}](${url})`;
+          case 'html':
+            return `<a href="${url}">${title}</a>`;
+          case 'json':
+            return { url, title };
+          default:
+            return `${title}${separator}${url}`;
+        }
+      };
+      
+      // Handle JSON format specially
+      if (formatPattern === 'json') {
+        const urlsArray = links.map(formatEntry);
+        return JSON.stringify({ urls: urlsArray }, null, 2);
+      }
+      
+      const formattedEntries = links.map(formatEntry);
+      const newLines = '\n'.repeat((newLinesCount || 0) + 1);
+      
+      return formattedEntries.join(newLines);
+    };
+    
     // Execute action on selected links
     const executeAction = async (action: ActionConfig, links: HTMLAnchorElement[]) => {
       if (links.length === 0) return;
@@ -130,15 +213,23 @@ export default defineContentScript({
       console.log(`Executing action: ${action.action} on ${links.length} links`);
       
       switch (action.action) {
-        case 'open_new_tab':
-          const tabUrls = links.map(link => link.href).filter(url => url && url.startsWith('http'));
+        case 'open_new_tab': {
+          const options = action.advancedOptions?.open_new_tab || {};
+          
+          // Apply smart select and reverse order
+          let processedLinks = applySmartSelect(links, options.smartSelectEnabled !== false, 'open_new_tab');
+          processedLinks = applyReverseOrder(processedLinks, options.reverseOrderEnabled === true);
+          
+          const tabUrls = processedLinks.map(link => link.href).filter(url => url && url.startsWith('http'));
+          
           if (tabUrls.length > 0) {
             try {
-              const delay = action.advancedOptions?.open_new_tab?.tabOpeningDelay || 0;
+              const delay = options.tabOpeningDelay || 0;
               const response = await browser.runtime.sendMessage({
                 action: 'openTabs',
                 urls: tabUrls,
-                delay: delay
+                delay: delay,
+                openAtEnd: options.openAtEndEnabled === true
               }) as MessageResponse;
               
               if (response.success) {
@@ -153,13 +244,20 @@ export default defineContentScript({
             }
           }
           break;
+        }
           
-        case 'open_new_window':
-          const windowUrls = links.map(link => link.href).filter(url => url && url.startsWith('http'));
+        case 'open_new_window': {
+          const options = action.advancedOptions?.open_new_window || {};
+          
+          // Apply smart select and reverse order
+          let processedLinks = applySmartSelect(links, options.smartSelectEnabled !== false, 'open_new_window');
+          processedLinks = applyReverseOrder(processedLinks, options.reverseOrderEnabled === true);
+          
+          const windowUrls = processedLinks.map(link => link.href).filter(url => url && url.startsWith('http'));
+          
           if (windowUrls.length > 0) {
             try {
-              const delay = action.advancedOptions?.open_new_window?.tabOpeningDelay || 0;
-              // For new window, we'll send a message to background script
+              const delay = options.tabOpeningDelay || 0;
               const response = await browser.runtime.sendMessage({
                 action: 'openWindow',
                 urls: windowUrls,
@@ -178,42 +276,60 @@ export default defineContentScript({
             }
           }
           break;
+        }
           
-        case 'copy_urls':
-          const urlList = links.map(link => link.href).filter(url => url && url.startsWith('http'));
+        case 'copy_urls': {
+          const options = action.advancedOptions?.copy_urls || {};
+          
+          // Apply smart select and reverse order
+          let processedLinks = applySmartSelect(links, options.smartSelectEnabled !== false, 'copy_urls');
+          processedLinks = applyReverseOrder(processedLinks, options.reverseOrderEnabled === true);
+          
+          const urlList = processedLinks.map(link => link.href).filter(url => url && url.startsWith('http'));
+          
           if (urlList.length > 0) {
-            const separator = action.advancedOptions?.copy_urls?.separatorType || '\n';
-            const text = urlList.join(separator);
+            const text = urlList.join('\n');
             await navigator.clipboard.writeText(text);
             showNotification(`Copied ${urlList.length} URLs to clipboard`);
           }
           break;
+        }
           
-        case 'copy_urls_with_title':
-          const urlsWithTitles = links.map(link => {
-            const title = link.textContent?.trim() || link.title || 'Untitled';
-            return `${title}: ${link.href}`;
-          }).filter((_, index) => links[index].href && links[index].href.startsWith('http'));
+        case 'copy_urls_with_title': {
+          const options = action.advancedOptions?.copy_urls_with_title || {};
           
-          if (urlsWithTitles.length > 0) {
-            const separator = action.advancedOptions?.copy_urls_with_title?.separatorType || '\n';
-            const text = urlsWithTitles.join(separator);
+          // Apply smart select and reverse order
+          let processedLinks = applySmartSelect(links, options.smartSelectEnabled !== false, 'copy_urls_with_title');
+          processedLinks = applyReverseOrder(processedLinks, options.reverseOrderEnabled === true);
+          
+          const validLinks = processedLinks.filter(link => link.href && link.href.startsWith('http'));
+          
+          if (validLinks.length > 0) {
+            const text = formatUrlsWithTitles(validLinks, options);
             await navigator.clipboard.writeText(text);
-            showNotification(`Copied ${urlsWithTitles.length} URLs with titles to clipboard`);
+            showNotification(`Copied ${validLinks.length} URLs with titles to clipboard`);
           }
           break;
+        }
           
-        case 'copy_titles':
-          const titles = links.map(link => link.textContent?.trim() || link.title || 'Untitled')
-            .filter((_, index) => links[index].href && links[index].href.startsWith('http'));
+        case 'copy_titles': {
+          const options = action.advancedOptions?.copy_titles || {};
+          
+          // Apply smart select and reverse order
+          let processedLinks = applySmartSelect(links, options.smartSelectEnabled !== false, 'copy_titles');
+          processedLinks = applyReverseOrder(processedLinks, options.reverseOrderEnabled === true);
+          
+          const titles = processedLinks
+            .filter(link => link.href && link.href.startsWith('http'))
+            .map(link => link.textContent?.trim() || link.title || 'Untitled');
           
           if (titles.length > 0) {
-            const separator = action.advancedOptions?.copy_titles?.separatorType || '\n';
-            const text = titles.join(separator);
+            const text = titles.join('\n');
             await navigator.clipboard.writeText(text);
             showNotification(`Copied ${titles.length} titles to clipboard`);
           }
           break;
+        }
       }
     };
     

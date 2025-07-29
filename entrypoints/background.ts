@@ -95,12 +95,20 @@ export default defineBackground(() => {
       // Handle async operation
       (async () => {
         try {
-          const { urls, delay } = message;
+          const { urls, delay, openAtEnd } = message;
           console.log('Background: Opening tabs for URLs:', urls);
           console.log('Background: Using delay:', delay, 'seconds');
+          console.log('Background: Open at end:', openAtEnd);
           
           let successCount = 0;
           const totalLinks = urls.length;
+          
+          // Get current tab count if opening at end
+          let tabIndex = undefined;
+          if (openAtEnd) {
+            const currentTabs = await browser.tabs.query({ currentWindow: true });
+            tabIndex = currentTabs.length;
+          }
           
           for (let i = 0; i < urls.length; i++) {
             const url = urls[i];
@@ -108,10 +116,17 @@ export default defineBackground(() => {
             try {
               console.log(`Background: Opening tab ${i + 1}/${totalLinks}: ${url}`);
               
-              const tab = await browser.tabs.create({
+              const createOptions: any = {
                 url: url,
                 active: false
-              });
+              };
+              
+              // Set index if opening at end
+              if (openAtEnd && tabIndex !== undefined) {
+                createOptions.index = tabIndex + i;
+              }
+              
+              const tab = await browser.tabs.create(createOptions);
               
               console.log(`Background: Successfully created tab ${i + 1}:`, tab.id);
               successCount++;
