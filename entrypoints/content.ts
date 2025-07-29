@@ -436,8 +436,8 @@ export default defineContentScript({
         const deltaX = Math.abs(event.clientX - mouseDownPosition.x);
         const deltaY = Math.abs(event.clientY - mouseDownPosition.y);
         
-        // If mouse moved more than 5 pixels, consider it movement
-        if (deltaX > 5 || deltaY > 5) {
+        // If mouse moved more than 10 pixels, consider it movement
+        if (deltaX > 10 || deltaY > 10) {
           hasMouseMoved = true;
           
           // Clear the timeout since we're activating due to movement
