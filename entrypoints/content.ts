@@ -63,16 +63,17 @@ export default defineContentScript({
     // Create selection box element
     const createSelectionBox = (x: number, y: number, action: ActionConfig): HTMLDivElement => {
       const box = document.createElement('div');
-      box.style.position = 'fixed';
+      box.style.position = 'absolute';
       box.style.left = x + 'px';
       box.style.top = y + 'px';
       box.style.width = '0px';
       box.style.height = '0px';
       box.style.border = `${action.borderSize}px ${action.borderType} ${action.color}`;
-      box.style.backgroundColor = action.color + '20'; // 20% opacity
+      box.style.backgroundColor = 'transparent';
       box.style.pointerEvents = 'none';
-      box.style.zIndex = '999999';
+      box.style.zIndex = '10000';
       box.style.boxSizing = 'border-box';
+      
       document.body.appendChild(box);
       return box;
     };
@@ -396,9 +397,9 @@ export default defineContentScript({
         event.preventDefault();
         event.stopPropagation();
         
-        // Store the pending action and mouse position
+        // Store the pending action and mouse position (convert to document coordinates)
         pendingAction = matchingAction;
-        mouseDownPosition = { x: event.clientX, y: event.clientY };
+        mouseDownPosition = { x: event.clientX, y: event.clientY + window.scrollY };
         hasMouseMoved = false;
         
         // Set a delay before activating the action
@@ -436,8 +437,9 @@ export default defineContentScript({
     const handleMouseMove = (event: MouseEvent) => {
       // Check if we have a pending action and mouse has moved
       if (pendingAction && !hasMouseMoved) {
+        const currentDocumentY = event.clientY + window.scrollY;
         const deltaX = Math.abs(event.clientX - mouseDownPosition.x);
-        const deltaY = Math.abs(event.clientY - mouseDownPosition.y);
+        const deltaY = Math.abs(currentDocumentY - mouseDownPosition.y);
         
         // If mouse moved more than 10 pixels, consider it movement
         if (deltaX > 10 || deltaY > 10) {
@@ -458,20 +460,23 @@ export default defineContentScript({
       if (isDragging && selectionBox && currentAction) {
         event.preventDefault();
         
+        const currentDocumentX = event.clientX;
+        const currentDocumentY = event.clientY + window.scrollY;
+        
         updateSelectionBox(
           selectionBox.element,
           selectionBox.startX,
           selectionBox.startY,
-          event.clientX,
-          event.clientY
+          currentDocumentX,
+          currentDocumentY
         );
         
         // Update selected links
         selectedLinks = getLinksInSelection(
-          selectionBox.startX + window.scrollX,
-          selectionBox.startY + window.scrollY,
-          event.clientX + window.scrollX,
-          event.clientY + window.scrollY
+          selectionBox.startX,
+          selectionBox.startY,
+          currentDocumentX,
+          currentDocumentY
         );
         
         // Highlight selected links
@@ -668,6 +673,36 @@ export default defineContentScript({
       }
     };
     
+    const handleScroll = () => {
+      // The selection box uses absolute positioning with document coordinates,
+      // so it automatically moves with the page content during scrolling.
+      // We just need to update the link highlighting since link positions
+      // change relative to the viewport during scroll.
+      if (isDragging && selectionBox) {
+        // Remove old highlights
+        document.querySelectorAll('.grabbit-highlighted').forEach(el => {
+          el.classList.remove('grabbit-highlighted');
+        });
+        
+        // Get current selection box dimensions to recalculate selected links
+        const box = selectionBox.element;
+        const left = parseInt(box.style.left);
+        const top = parseInt(box.style.top);
+        const width = parseInt(box.style.width);
+        const height = parseInt(box.style.height);
+        
+        // Calculate end coordinates
+        const endX = left + width;
+        const endY = top + height;
+        
+        // Update selected links with current selection area
+        selectedLinks = getLinksInSelection(left, top, endX, endY);
+        selectedLinks.forEach(link => {
+          link.classList.add('grabbit-highlighted');
+        });
+      }
+    };
+    
     // Add CSS for highlighted links
     let dynamicStyleElement: HTMLStyleElement | null = null;
     
@@ -719,6 +754,7 @@ export default defineContentScript({
       document.addEventListener('mouseup', handleMouseUp, true);
       document.addEventListener('keydown', handleKeyDown, true);
       document.addEventListener('keyup', handleKeyUp, true);
+      document.addEventListener('scroll', handleScroll, true);
       
       // Note: Context menu prevention is now handled dynamically in activateAction
       
