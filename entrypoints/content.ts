@@ -38,6 +38,7 @@ export default defineContentScript({
     let isDragging = false;
     let currentAction: ActionConfig | null = null;
     let selectedLinks: HTMLAnchorElement[] = [];
+    let actionActivated = false; // Flag to prevent duplicate activation
     
     // Load actions from storage
     const loadActions = async () => {
@@ -495,6 +496,7 @@ export default defineContentScript({
         pendingAction = matchingAction;
         mouseDownPosition = { x: event.clientX, y: event.clientY + window.scrollY };
         hasMouseMoved = false;
+        actionActivated = false;
         
         // Set a delay before activating the action
         mouseDownTimeout = window.setTimeout(() => {
@@ -510,6 +512,9 @@ export default defineContentScript({
     };
     
     const activateAction = (action: ActionConfig, startX: number, startY: number) => {
+      if (actionActivated) return; // Prevent duplicate activation
+      actionActivated = true;
+      
       currentAction = action;
       isDragging = true;
       
@@ -575,7 +580,7 @@ export default defineContentScript({
     
     const handleMouseMove = (event: MouseEvent) => {
       // Check if we have a pending action and mouse has moved
-      if (pendingAction && !hasMouseMoved) {
+      if (pendingAction && !hasMouseMoved && !actionActivated) {
         const currentDocumentY = event.clientY + window.scrollY;
         const deltaX = Math.abs(event.clientX - mouseDownPosition.x);
         const deltaY = Math.abs(currentDocumentY - mouseDownPosition.y);
@@ -694,6 +699,7 @@ export default defineContentScript({
         selectedLinks = [];
         pendingAction = null;
         hasMouseMoved = false;
+        actionActivated = false;
         
         // Clean up dynamic styles
         if (dynamicStyleElement && dynamicStyleElement.parentNode) {
@@ -808,6 +814,7 @@ export default defineContentScript({
           selectedLinks = [];
           pendingAction = null;
           hasMouseMoved = false;
+          actionActivated = false;
           
           // Clean up dynamic styles
           if (dynamicStyleElement && dynamicStyleElement.parentNode) {
