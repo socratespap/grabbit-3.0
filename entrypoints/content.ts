@@ -557,6 +557,44 @@ export default defineContentScript({
       event.stopPropagation();
     };
     
+    const getCurrentModifiers = (event: KeyboardEvent | MouseEvent) => {
+      const modifiers: string[] = [];
+      if (event.ctrlKey) modifiers.push('ctrl');
+      if (event.shiftKey) modifiers.push('shift');
+      if (event.altKey) modifiers.push('alt');
+      if (event.metaKey) modifiers.push('meta');
+      return modifiers;
+    };
+    
+    const findMatchingAction = (mouseButton: string, modifiers: string[]) => {
+      return actions.find(action => 
+        action.mouseButton === mouseButton && 
+        JSON.stringify(action.modifiers.sort()) === JSON.stringify(modifiers.sort())
+      );
+    };
+    
+    const switchToAction = (newAction: ActionConfig) => {
+      if (!selectionBox || !currentAction) return;
+      
+      console.log(`Switching from ${currentAction.action} to ${newAction.action}`);
+      
+      // Update current action
+      currentAction = newAction;
+      
+      // Update selection box appearance
+      const box = selectionBox.element;
+      box.style.borderColor = newAction.color;
+      box.style.backgroundColor = `${newAction.color}20`;
+      
+      // Update highlight color
+      updateHighlightColor(newAction.color);
+      
+      // Re-highlight selected links with new color
+      selectedLinks.forEach(link => {
+        link.classList.add('grabbit-highlighted');
+      });
+    };
+    
     const handleKeyDown = (event: KeyboardEvent) => {
       // Handle escape key to cancel active actions
       if (event.key === 'Escape' || event.keyCode === 27) {
@@ -606,6 +644,26 @@ export default defineContentScript({
           document.removeEventListener('contextmenu', preventContextMenu, true);
           
           console.log('Grabbit action canceled by escape key');
+        }
+      } else if (isDragging && currentAction && ['Control', 'Shift', 'Alt', 'Meta'].includes(event.key)) {
+        // Handle modifier key changes during active selection
+        const currentModifiers = getCurrentModifiers(event);
+        const matchingAction = findMatchingAction(currentAction.mouseButton, currentModifiers);
+        
+        if (matchingAction && matchingAction.id !== currentAction.id) {
+          switchToAction(matchingAction);
+        }
+      }
+    };
+    
+    const handleKeyUp = (event: KeyboardEvent) => {
+      if (isDragging && currentAction && ['Control', 'Shift', 'Alt', 'Meta'].includes(event.key)) {
+        // Handle modifier key release during active selection
+        const currentModifiers = getCurrentModifiers(event);
+        const matchingAction = findMatchingAction(currentAction.mouseButton, currentModifiers);
+        
+        if (matchingAction && matchingAction.id !== currentAction.id) {
+          switchToAction(matchingAction);
         }
       }
     };
@@ -660,6 +718,7 @@ export default defineContentScript({
       document.addEventListener('mousemove', handleMouseMove, true);
       document.addEventListener('mouseup', handleMouseUp, true);
       document.addEventListener('keydown', handleKeyDown, true);
+      document.addEventListener('keyup', handleKeyUp, true);
       
       // Note: Context menu prevention is now handled dynamically in activateAction
       
