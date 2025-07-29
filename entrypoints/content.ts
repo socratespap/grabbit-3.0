@@ -19,6 +19,12 @@ interface SelectionBox {
   isActive: boolean;
 }
 
+interface MessageResponse {
+  success: boolean;
+  successCount?: number;
+  error?: string;
+}
+
 export default defineContentScript({
   matches: ['<all_urls>'],
   main() {
@@ -125,28 +131,46 @@ export default defineContentScript({
       
       switch (action.action) {
         case 'open_new_tab':
-          for (const link of links) {
-            const url = link.href;
-            if (url && url.startsWith('http')) {
-              try {
-                await browser.tabs.create({ url, active: false });
-              } catch (error) {
-                console.error('Error opening tab:', error);
+          const tabUrls = links.map(link => link.href).filter(url => url && url.startsWith('http'));
+          if (tabUrls.length > 0) {
+            try {
+              const response = await browser.runtime.sendMessage({
+                action: 'openTabs',
+                urls: tabUrls
+              }) as MessageResponse;
+              
+              if (response.success) {
+                showNotification(`Opened ${response.successCount} tabs`);
+              } else {
+                console.error('Failed to open tabs:', response.error);
+                showNotification(`Failed to open tabs: ${response.error || 'Unknown error'}`);
               }
+            } catch (error) {
+              console.error('Error sending message to background:', error);
+              showNotification('Failed to open tabs');
             }
           }
           break;
           
         case 'open_new_window':
-          const urls = links.map(link => link.href).filter(url => url && url.startsWith('http'));
-          if (urls.length > 0) {
+          const windowUrls = links.map(link => link.href).filter(url => url && url.startsWith('http'));
+          if (windowUrls.length > 0) {
             try {
-              await browser.windows.create({ url: urls[0] });
-              for (let i = 1; i < urls.length; i++) {
-                await browser.tabs.create({ url: urls[i], active: false });
+              // For new window, we'll send a message to background script
+              const response = await browser.runtime.sendMessage({
+                action: 'openWindow',
+                urls: windowUrls
+              }) as MessageResponse;
+              
+              if (response.success) {
+                showNotification(`Opened new window with ${windowUrls.length} tabs`);
+              } else {
+                console.error('Failed to open window:', response.error);
+                showNotification(`Failed to open window: ${response.error || 'Unknown error'}`);
               }
             } catch (error) {
-              console.error('Error opening window:', error);
+              console.error('Error sending message to background:', error);
+              showNotification('Failed to open window');
             }
           }
           break;
@@ -250,8 +274,8 @@ export default defineContentScript({
         currentAction = matchingAction;
         isDragging = true;
         
-        const startX = event.pageX;
-        const startY = event.pageY;
+        const startX = event.clientX;
+        const startY = event.clientY;
         
         const box = createSelectionBox(startX, startY, matchingAction);
         selectionBox = {
@@ -274,16 +298,16 @@ export default defineContentScript({
           selectionBox.element,
           selectionBox.startX,
           selectionBox.startY,
-          event.pageX,
-          event.pageY
+          event.clientX,
+          event.clientY
         );
         
         // Update selected links
         selectedLinks = getLinksInSelection(
-          selectionBox.startX,
-          selectionBox.startY,
-          event.pageX,
-          event.pageY
+          selectionBox.startX + window.scrollX,
+          selectionBox.startY + window.scrollY,
+          event.clientX + window.scrollX,
+          event.clientY + window.scrollY
         );
         
         // Highlight selected links
@@ -302,10 +326,11 @@ export default defineContentScript({
         event.preventDefault();
         event.stopPropagation();
         
-        // Execute action
-        await executeAction(currentAction, selectedLinks);
+        // Store references before cleanup
+        const actionToExecute = currentAction;
+        const linksToProcess = [...selectedLinks];
         
-        // Cleanup
+        // Immediate cleanup for better UX
         if (selectionBox.element.parentNode) {
           selectionBox.element.parentNode.removeChild(selectionBox.element);
         }
@@ -325,6 +350,9 @@ export default defineContentScript({
         setTimeout(() => {
           document.removeEventListener('click', preventClick, true);
         }, 100);
+        
+        // Execute action after cleanup
+        await executeAction(actionToExecute, linksToProcess);
       }
     };
     

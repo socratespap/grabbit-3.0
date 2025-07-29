@@ -89,7 +89,7 @@ export default defineBackground(() => {
     }
   });
 
-  // Listen for messages from popup
+  // Listen for messages from popup and content script
   browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.action === 'openTabs') {
       // Handle async operation
@@ -115,10 +115,7 @@ export default defineBackground(() => {
               console.log(`Background: Successfully created tab ${i + 1}:`, tab.id);
               successCount++;
               
-              // Add delay between tab creations
-              if (i < urls.length - 1) {
-                await new Promise(resolve => setTimeout(resolve, 300));
-              }
+              // No delay needed between tab creations
             } catch (error) {
               console.error(`Background: Failed to open tab ${i + 1}:`, error);
             }
@@ -145,6 +142,74 @@ export default defineBackground(() => {
             error: error instanceof Error ? error.message : 'Unknown error occurred'
           };
           console.log('Background: Sending error response:', errorResponse);
+          sendResponse(errorResponse);
+        }
+      })();
+      
+      return true; // Keep message channel open for async response
+    }
+    
+    if (message.action === 'openWindow') {
+      // Handle async operation for opening new window
+      (async () => {
+        try {
+          const { urls } = message;
+          console.log('Background: Opening new window with URLs:', urls);
+          
+          if (urls.length === 0) {
+            sendResponse({ success: false, error: 'No URLs provided' });
+            return;
+          }
+          
+          // Create new window with first URL
+          const window = await browser.windows.create({
+            url: urls[0],
+            focused: true
+          });
+          
+          console.log('Background: Created new window:', window.id);
+          
+          // Add remaining URLs as tabs in the new window
+          let successCount = 1; // First tab already created with window
+          
+          for (let i = 1; i < urls.length; i++) {
+            try {
+              console.log(`Background: Adding tab ${i + 1}/${urls.length}: ${urls[i]}`);
+              
+              const tab = await browser.tabs.create({
+                url: urls[i],
+                windowId: window.id,
+                active: false
+              });
+              
+              console.log(`Background: Successfully created tab ${i + 1}:`, tab.id);
+              successCount++;
+              
+              // No delay needed between tab creations
+            } catch (error) {
+              console.error(`Background: Failed to create tab ${i + 1}:`, error);
+            }
+          }
+          
+          console.log(`Background: Created window with ${successCount}/${urls.length} tabs`);
+          
+          const response = {
+            success: true,
+            successCount,
+            totalLinks: urls.length,
+            windowId: window.id
+          };
+          
+          console.log('Background: Sending window response:', response);
+          sendResponse(response);
+          
+        } catch (error) {
+          console.error('Background: Error opening window:', error);
+          const errorResponse = {
+            success: false,
+            error: error instanceof Error ? error.message : 'Unknown error occurred'
+          };
+          console.log('Background: Sending window error response:', errorResponse);
           sendResponse(errorResponse);
         }
       })();
