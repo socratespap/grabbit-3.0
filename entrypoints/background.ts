@@ -1,12 +1,18 @@
+import browser from 'webextension-polyfill';
+import { addVisitedLink, initializeVisitedLinksTracking } from './utils/visitedLinks';
+
 export default defineBackground(() => {
   console.log('Background worker', { id: browser.runtime.id });
+
+  // Initialize visited links tracking
+  initializeVisitedLinksTracking();
 
   // Check if domain is excluded and update icon accordingly
   const checkDomainAndUpdateIcon = async (tabId: number, url: string) => {
     try {
       // Get settings from storage
       const result = await browser.storage.sync.get('settings');
-      const settings = result.settings || {};
+      const settings = result.settings || {} as any;
       
       if (settings.excludedDomains) {
         const excludedDomains = settings.excludedDomains
@@ -90,7 +96,7 @@ export default defineBackground(() => {
   });
 
   // Listen for messages from popup and content script
-  browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  browser.runtime.onMessage.addListener((message: any, sender, sendResponse) => {
     if (message.action === 'openTabs') {
       // Handle async operation
       (async () => {
@@ -127,6 +133,9 @@ export default defineBackground(() => {
               }
               
               const tab = await browser.tabs.create(createOptions);
+              
+              // Track visited link in custom system
+              await addVisitedLink(url);
               
               console.log(`Background: Successfully created tab ${i + 1}:`, tab.id);
               successCount++;
@@ -188,6 +197,9 @@ export default defineBackground(() => {
             focused: true
           });
           
+          // Track visited link in custom system
+          await addVisitedLink(urls[0]);
+          
           console.log('Background: Created new window:', window.id);
           
           // Add remaining URLs as tabs in the new window
@@ -202,6 +214,9 @@ export default defineBackground(() => {
                 windowId: window.id,
                 active: false
               });
+              
+              // Track visited link in custom system
+              await addVisitedLink(urls[i]);
               
               console.log(`Background: Successfully created tab ${i + 1}:`, tab.id);
               successCount++;
@@ -241,5 +256,7 @@ export default defineBackground(() => {
       
       return true; // Keep message channel open for async response
     }
+    
+    return true; // Always return true for async message handling
   });
 });

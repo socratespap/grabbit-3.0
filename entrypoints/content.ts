@@ -1,4 +1,6 @@
 import browser from 'webextension-polyfill';
+import { initializeVisitedLinksStyler, updateVisitedLinksStyles } from './utils/visitedLinksStyler';
+import { addVisitedLink } from './utils/visitedLinks';
 
 interface ActionConfig {
   id: string;
@@ -314,6 +316,12 @@ export default defineContentScript({
               }) as MessageResponse;
               
               if (response.success) {
+                // Track visited links in custom system
+                tabUrls.forEach(url => {
+                  addVisitedLink(url);
+                  updateVisitedLinksStyles(url);
+                });
+                
                 showNotification(`Opened ${response.successCount} tabs`);
               } else {
                 console.error('Failed to open tabs:', response.error);
@@ -346,6 +354,12 @@ export default defineContentScript({
               }) as MessageResponse;
               
               if (response.success) {
+                // Track visited links in custom system
+                windowUrls.forEach(url => {
+                  addVisitedLink(url);
+                  updateVisitedLinksStyles(url);
+                });
+                
                 showNotification(`Opened new window with ${windowUrls.length} tabs`);
               } else {
                 console.error('Failed to open window:', response.error);
@@ -939,5 +953,8 @@ export default defineContentScript({
     
     // Start the extension
     init();
+    
+    // Initialize visited links styling
+    initializeVisitedLinksStyler();
   },
 });

@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import { ref, onMounted, computed } from 'vue';
 import browser from 'webextension-polyfill';
+import { addVisitedLink } from '../utils/visitedLinks';
 
 const extensionName = 'Grabbit';
 const isLoading = ref(false);
@@ -475,6 +476,11 @@ const openCopiedLinks = async () => {
       const totalNum = responseTotal ?? 0;
       
       if (successNum > 0) {
+        // Track visited links in custom system
+        validUrls.slice(0, successNum).forEach(url => {
+          addVisitedLink(url);
+        });
+        
         // Show success for any tabs that opened
         if (success) {
           buttonStates.value.openLinks = `✓ Opened ${successNum}/${totalNum} links!`;
