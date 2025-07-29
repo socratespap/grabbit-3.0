@@ -14,6 +14,7 @@ interface ActionConfig {
 
 interface SelectionBox {
   element: HTMLDivElement;
+  statusElement: HTMLDivElement;
   startX: number;
   startY: number;
   isActive: boolean;
@@ -60,6 +61,34 @@ export default defineContentScript({
       }
     };
     
+    // Generate status text based on action and link count
+    const getStatusText = (action: ActionConfig, linkCount: number): string => {
+      if (linkCount === 0) {
+        return 'No links selected';
+      }
+      
+      const linkText = linkCount === 1 ? 'link' : 'links';
+      
+      switch (action.action) {
+        case 'open_new_tab':
+          return `${linkCount} ${linkText} will open in new tabs`;
+        case 'open_new_window':
+          return `${linkCount} ${linkText} will open in a new window`;
+        case 'copy_urls':
+          return `${linkCount} ${linkText} will be copied as URLs`;
+        case 'copy_urls_with_title':
+          const options = action.advancedOptions?.copy_urls_with_title || {};
+          const format = options.formatPattern === 'json' ? 'JSON format' : 
+                        options.formatPattern === 'markdown' ? 'Markdown format' : 
+                        options.formatPattern === 'html' ? 'HTML format' : 'text format';
+          return `${linkCount} ${linkText} with titles will be copied in ${format}`;
+        case 'copy_titles':
+          return `${linkCount} ${linkText} titles will be copied`;
+        default:
+          return `${linkCount} ${linkText} selected`;
+      }
+    };
+    
     // Create selection box element
     const createSelectionBox = (x: number, y: number, action: ActionConfig): HTMLDivElement => {
       const box = document.createElement('div');
@@ -78,6 +107,26 @@ export default defineContentScript({
       return box;
     };
     
+    // Create status display element
+    const createStatusElement = (action: ActionConfig): HTMLDivElement => {
+      const statusElement = document.createElement('div');
+      statusElement.style.position = 'absolute';
+      statusElement.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+      statusElement.style.color = 'white';
+      statusElement.style.padding = '6px 12px';
+      statusElement.style.borderRadius = '4px';
+      statusElement.style.fontSize = '12px';
+      statusElement.style.fontFamily = 'system-ui, -apple-system, sans-serif';
+      statusElement.style.whiteSpace = 'nowrap';
+      statusElement.style.pointerEvents = 'none';
+      statusElement.style.zIndex = '10001';
+      statusElement.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.3)';
+      statusElement.textContent = getStatusText(action, 0);
+      
+      document.body.appendChild(statusElement);
+      return statusElement;
+    };
+    
     // Update selection box size
     const updateSelectionBox = (box: HTMLDivElement, startX: number, startY: number, currentX: number, currentY: number) => {
       const left = Math.min(startX, currentX);
@@ -89,6 +138,16 @@ export default defineContentScript({
       box.style.top = top + 'px';
       box.style.width = width + 'px';
       box.style.height = height + 'px';
+      
+      // Update status element position and text
+      if (selectionBox && selectionBox.statusElement && currentAction) {
+        selectionBox.statusElement.style.left = (left + 10) + 'px';
+        selectionBox.statusElement.style.top = (top - 30) + 'px';
+        
+        // Get current links in selection and update status text
+        const links = getLinksInSelection(left, top, left + width, top + height);
+        selectionBox.statusElement.textContent = getStatusText(currentAction, links.length);
+      }
     };
     
     // Get links within selection box
@@ -444,8 +503,15 @@ export default defineContentScript({
       updateHighlightColor(action.color);
       
       const box = createSelectionBox(startX, startY, action);
+      const statusElement = createStatusElement(action);
+      
+      // Position status element near the selection box
+      statusElement.style.left = (startX + 10) + 'px';
+      statusElement.style.top = (startY - 30) + 'px';
+      
       selectionBox = {
         element: box,
+        statusElement: statusElement,
         startX,
         startY,
         isActive: true
@@ -542,6 +608,9 @@ export default defineContentScript({
         if (selectionBox.element.parentNode) {
           selectionBox.element.parentNode.removeChild(selectionBox.element);
         }
+        if (selectionBox.statusElement && selectionBox.statusElement.parentNode) {
+          selectionBox.statusElement.parentNode.removeChild(selectionBox.statusElement);
+        }
         
         // Remove highlights
         document.querySelectorAll('.grabbit-highlighted').forEach(el => {
@@ -615,6 +684,11 @@ export default defineContentScript({
       // Update highlight color
       updateHighlightColor(newAction.color);
       
+      // Update status element text with new action
+      if (selectionBox.statusElement) {
+        selectionBox.statusElement.textContent = getStatusText(newAction, selectedLinks.length);
+      }
+      
       // Re-highlight selected links with new color
       selectedLinks.forEach(link => {
         link.classList.add('grabbit-highlighted');
@@ -643,6 +717,9 @@ export default defineContentScript({
           if (isDragging && selectionBox) {
             if (selectionBox.element.parentNode) {
               selectionBox.element.parentNode.removeChild(selectionBox.element);
+            }
+            if (selectionBox.statusElement && selectionBox.statusElement.parentNode) {
+              selectionBox.statusElement.parentNode.removeChild(selectionBox.statusElement);
             }
             
             // Remove highlights
