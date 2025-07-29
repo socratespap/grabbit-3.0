@@ -375,6 +375,11 @@ export default defineContentScript({
     };
     
     // Mouse event handlers
+    let mouseDownTimeout: number | null = null;
+    let hasMouseMoved = false;
+    let pendingAction: ActionConfig | null = null;
+    let mouseDownPosition = { x: 0, y: 0 };
+    
     const handleMouseDown = (event: MouseEvent) => {
       // Find matching action
       const matchingAction = actions.find(action => {
@@ -391,26 +396,62 @@ export default defineContentScript({
         event.preventDefault();
         event.stopPropagation();
         
-        currentAction = matchingAction;
-        isDragging = true;
+        // Store the pending action and mouse position
+        pendingAction = matchingAction;
+        mouseDownPosition = { x: event.clientX, y: event.clientY };
+        hasMouseMoved = false;
         
-        const startX = event.clientX;
-        const startY = event.clientY;
-        
-        const box = createSelectionBox(startX, startY, matchingAction);
-        selectionBox = {
-          element: box,
-          startX,
-          startY,
-          isActive: true
-        };
+        // Set a delay before activating the action
+        mouseDownTimeout = window.setTimeout(() => {
+          if (pendingAction && !hasMouseMoved) {
+            // If no movement after delay, activate immediately
+            activateAction(pendingAction, mouseDownPosition.x, mouseDownPosition.y);
+          }
+        }, 150); // 150ms delay
         
         // Prevent default link behavior
         document.addEventListener('click', preventClick, true);
       }
     };
     
+    const activateAction = (action: ActionConfig, startX: number, startY: number) => {
+      currentAction = action;
+      isDragging = true;
+      
+      const box = createSelectionBox(startX, startY, action);
+      selectionBox = {
+        element: box,
+        startX,
+        startY,
+        isActive: true
+      };
+      
+      // Prevent context menu from appearing when action is activated
+      document.addEventListener('contextmenu', preventContextMenu, true);
+    };
+    
     const handleMouseMove = (event: MouseEvent) => {
+      // Check if we have a pending action and mouse has moved
+      if (pendingAction && !hasMouseMoved) {
+        const deltaX = Math.abs(event.clientX - mouseDownPosition.x);
+        const deltaY = Math.abs(event.clientY - mouseDownPosition.y);
+        
+        // If mouse moved more than 5 pixels, consider it movement
+        if (deltaX > 5 || deltaY > 5) {
+          hasMouseMoved = true;
+          
+          // Clear the timeout since we're activating due to movement
+          if (mouseDownTimeout) {
+            clearTimeout(mouseDownTimeout);
+            mouseDownTimeout = null;
+          }
+          
+          // Activate the action immediately when movement is detected
+          activateAction(pendingAction, mouseDownPosition.x, mouseDownPosition.y);
+          pendingAction = null;
+        }
+      }
+      
       if (isDragging && selectionBox && currentAction) {
         event.preventDefault();
         
@@ -442,6 +483,24 @@ export default defineContentScript({
     };
     
     const handleMouseUp = async (event: MouseEvent) => {
+      // Clear any pending timeout
+      if (mouseDownTimeout) {
+        clearTimeout(mouseDownTimeout);
+        mouseDownTimeout = null;
+      }
+      
+      // Reset pending action state
+      if (pendingAction && !isDragging) {
+        pendingAction = null;
+        hasMouseMoved = false;
+        // Remove click prevention and context menu prevention after a short delay
+        setTimeout(() => {
+          document.removeEventListener('click', preventClick, true);
+          document.removeEventListener('contextmenu', preventContextMenu, true);
+        }, 100);
+        return;
+      }
+      
       if (isDragging && selectionBox && currentAction) {
         event.preventDefault();
         event.stopPropagation();
@@ -465,10 +524,13 @@ export default defineContentScript({
         isDragging = false;
         currentAction = null;
         selectedLinks = [];
+        pendingAction = null;
+        hasMouseMoved = false;
         
-        // Remove click prevention after a short delay
+        // Remove click prevention and context menu prevention after a short delay
         setTimeout(() => {
           document.removeEventListener('click', preventClick, true);
+          document.removeEventListener('contextmenu', preventContextMenu, true);
         }, 100);
         
         // Execute action after cleanup
@@ -477,6 +539,11 @@ export default defineContentScript({
     };
     
     const preventClick = (event: Event) => {
+      event.preventDefault();
+      event.stopPropagation();
+    };
+    
+    const preventContextMenu = (event: Event) => {
       event.preventDefault();
       event.stopPropagation();
     };
@@ -504,12 +571,7 @@ export default defineContentScript({
       document.addEventListener('mousemove', handleMouseMove, true);
       document.addEventListener('mouseup', handleMouseUp, true);
       
-      // Prevent context menu when right-clicking with actions
-      document.addEventListener('contextmenu', (event) => {
-        if (isDragging) {
-          event.preventDefault();
-        }
-      });
+      // Note: Context menu prevention is now handled dynamically in activateAction
       
       // Listen for storage changes
        browser.storage.onChanged.addListener((changes, areaName) => {
