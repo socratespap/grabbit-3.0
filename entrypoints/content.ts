@@ -104,6 +104,27 @@ export default defineContentScript({
       };
       
       links.forEach(link => {
+        // Check if the link or any of its parents are sticky/fixed positioned
+        let element: Element | null = link;
+        let isSticky = false;
+        
+        while (element && element !== document.body) {
+          const computedStyle = window.getComputedStyle(element);
+          const position = computedStyle.position;
+          
+          if (position === 'fixed' || position === 'sticky') {
+            isSticky = true;
+            break;
+          }
+          
+          element = element.parentElement;
+        }
+        
+        // Skip sticky/fixed elements
+        if (isSticky) {
+          return;
+        }
+        
         const rect = link.getBoundingClientRect();
         const linkRect = {
           left: rect.left + window.scrollX,
