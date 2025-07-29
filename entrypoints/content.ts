@@ -521,6 +521,44 @@ export default defineContentScript({
       document.addEventListener('contextmenu', preventContextMenu, true);
     };
     
+    // Auto-scroll variables
+    let autoScrollInterval: number | null = null;
+    const SCROLL_ZONE_HEIGHT = 50; // pixels from bottom to trigger scroll
+    const SCROLL_SPEED = 25; // pixels per scroll step
+    const SCROLL_INTERVAL = 16; // milliseconds between scroll steps (~60fps)
+    
+    const startAutoScrollDown = () => {
+      if (autoScrollInterval) return; // Already scrolling
+      
+      autoScrollInterval = window.setInterval(() => {
+        const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
+        if (window.scrollY < maxScroll) {
+          window.scrollBy(0, SCROLL_SPEED);
+        } else {
+          stopAutoScroll(); // Stop when reached bottom
+        }
+      }, SCROLL_INTERVAL);
+    };
+    
+    const startAutoScrollUp = () => {
+      if (autoScrollInterval) return; // Already scrolling
+      
+      autoScrollInterval = window.setInterval(() => {
+        if (window.scrollY > 0) {
+          window.scrollBy(0, -SCROLL_SPEED);
+        } else {
+          stopAutoScroll(); // Stop when reached top
+        }
+      }, SCROLL_INTERVAL);
+    };
+    
+    const stopAutoScroll = () => {
+      if (autoScrollInterval) {
+        clearInterval(autoScrollInterval);
+        autoScrollInterval = null;
+      }
+    };
+    
     const handleMouseMove = (event: MouseEvent) => {
       // Check if we have a pending action and mouse has moved
       if (pendingAction && !hasMouseMoved) {
@@ -549,6 +587,21 @@ export default defineContentScript({
         
         const currentDocumentX = event.clientX;
         const currentDocumentY = event.clientY + window.scrollY;
+        
+        // Auto-scroll when mouse is near top or bottom of viewport
+        const viewportHeight = window.innerHeight;
+        const mouseY = event.clientY;
+        const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
+        
+        if (mouseY < SCROLL_ZONE_HEIGHT && window.scrollY > 0) {
+          // Scroll up when mouse is near top
+          startAutoScrollUp();
+        } else if (mouseY > viewportHeight - SCROLL_ZONE_HEIGHT && window.scrollY < maxScroll) {
+          // Scroll down when mouse is near bottom
+          startAutoScrollDown();
+        } else {
+          stopAutoScroll();
+        }
         
         updateSelectionBox(
           selectionBox.element,
@@ -583,6 +636,9 @@ export default defineContentScript({
         clearTimeout(mouseDownTimeout);
         mouseDownTimeout = null;
       }
+      
+      // Stop auto-scrolling
+      stopAutoScroll();
       
       // Reset pending action state
       if (pendingAction && !isDragging) {
@@ -706,6 +762,9 @@ export default defineContentScript({
           event.preventDefault();
           event.stopPropagation();
           event.stopImmediatePropagation();
+          
+          // Stop auto-scrolling
+          stopAutoScroll();
           
           // Cancel any pending timeout
           if (mouseDownTimeout) {
