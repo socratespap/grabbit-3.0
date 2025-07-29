@@ -134,9 +134,11 @@ export default defineContentScript({
           const tabUrls = links.map(link => link.href).filter(url => url && url.startsWith('http'));
           if (tabUrls.length > 0) {
             try {
+              const delay = action.advancedOptions?.open_new_tab?.tabOpeningDelay || 0;
               const response = await browser.runtime.sendMessage({
                 action: 'openTabs',
-                urls: tabUrls
+                urls: tabUrls,
+                delay: delay
               }) as MessageResponse;
               
               if (response.success) {
@@ -156,10 +158,12 @@ export default defineContentScript({
           const windowUrls = links.map(link => link.href).filter(url => url && url.startsWith('http'));
           if (windowUrls.length > 0) {
             try {
+              const delay = action.advancedOptions?.open_new_window?.tabOpeningDelay || 0;
               // For new window, we'll send a message to background script
               const response = await browser.runtime.sendMessage({
                 action: 'openWindow',
-                urls: windowUrls
+                urls: windowUrls,
+                delay: delay
               }) as MessageResponse;
               
               if (response.success) {

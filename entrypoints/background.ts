@@ -95,8 +95,9 @@ export default defineBackground(() => {
       // Handle async operation
       (async () => {
         try {
-          const { urls } = message;
+          const { urls, delay } = message;
           console.log('Background: Opening tabs for URLs:', urls);
+          console.log('Background: Using delay:', delay, 'seconds');
           
           let successCount = 0;
           const totalLinks = urls.length;
@@ -115,7 +116,11 @@ export default defineBackground(() => {
               console.log(`Background: Successfully created tab ${i + 1}:`, tab.id);
               successCount++;
               
-              // No delay needed between tab creations
+              // Apply delay between tab creations if specified
+              if (delay && delay > 0 && i < urls.length - 1) {
+                console.log(`Background: Waiting ${delay} seconds before next tab...`);
+                await new Promise(resolve => setTimeout(resolve, delay * 1000));
+              }
             } catch (error) {
               console.error(`Background: Failed to open tab ${i + 1}:`, error);
             }
@@ -153,8 +158,9 @@ export default defineBackground(() => {
       // Handle async operation for opening new window
       (async () => {
         try {
-          const { urls } = message;
+          const { urls, delay } = message;
           console.log('Background: Opening new window with URLs:', urls);
+          console.log('Background: Using delay:', delay, 'seconds');
           
           if (urls.length === 0) {
             sendResponse({ success: false, error: 'No URLs provided' });
@@ -185,7 +191,11 @@ export default defineBackground(() => {
               console.log(`Background: Successfully created tab ${i + 1}:`, tab.id);
               successCount++;
               
-              // No delay needed between tab creations
+              // Apply delay between tab creations if specified
+              if (delay && delay > 0 && i < urls.length - 1) {
+                console.log(`Background: Waiting ${delay} seconds before next tab...`);
+                await new Promise(resolve => setTimeout(resolve, delay * 1000));
+              }
             } catch (error) {
               console.error(`Background: Failed to create tab ${i + 1}:`, error);
             }
